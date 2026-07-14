@@ -1,6 +1,7 @@
-/* Fault Line — a tenser, darker sibling to Petrichor's "Living Sky":
-   charcoal/ember/deep-red instead of warm night-sky blues, a monitoring
-   instrument rather than a cozy ambient one. */
+/* Fault Line — a seismograph instrument console: a monitoring-station
+   CRT/phosphor read-out, not an ambient scene. Near-black chassis, a single
+   ember/deep-red accent, monospace numeric readouts, hard panel edges and
+   bezels instead of soft glassmorphism cards. */
 
 :root {
   --ember: #e26e58;
@@ -8,239 +9,205 @@
   --deep-red: #6e1f1a;
   --charcoal: #16130f;
   --charcoal-dark: #0b0908;
+  --panel: #100d0b;
   --ash: #a89e94;
   --ash-bright: #ece6e2;
-  --line: rgba(236, 230, 226, 0.12);
+  --line: rgba(236, 230, 226, 0.14);
+  --mono: 'SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo', monospace;
 }
 
-.app {
+* {
+  box-sizing: border-box;
+}
+
+.console-app {
   position: relative;
   min-height: 100vh;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background:
+    repeating-linear-gradient(180deg, rgba(226, 110, 88, 0.025) 0px, rgba(226, 110, 88, 0.025) 1px, transparent 1px, transparent 3px),
+    radial-gradient(140% 100% at 50% 0%, #17130f 0%, var(--charcoal-dark) 60%);
+  color: var(--ash-bright);
 }
 
-.brand {
-  position: absolute;
-  top: 20px;
-  left: 24px;
-  font-size: 13px;
-  letter-spacing: 0.28em;
+.console-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ---------- Header ---------- */
+
+.console-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 14px 20px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.console-brand {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  color: var(--ember-bright);
+}
+
+.console-brand-sub {
+  font-size: 11px;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ash);
   opacity: 0.75;
-  z-index: 5;
 }
 
-.stage {
+/* ---------- Main grid: helicorder hero + side bay ---------- */
+
+.console-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr minmax(220px, 300px);
+  gap: 1px;
+  background: var(--line);
+  min-height: 0;
+}
+
+@media (max-width: 860px) {
+  .console-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.helicorder-bay {
   position: relative;
-  z-index: 5;
-  min-height: 100vh;
+  background: var(--panel);
+  padding: 16px;
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 24px;
+  flex-direction: column;
+  min-height: 260px;
 }
 
-/* ---------- Map scene (full-viewport background) ---------- */
-
-.map-scene {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  background: radial-gradient(120% 100% at 50% 20%, #201a16 0%, var(--charcoal) 55%, var(--charcoal-dark) 100%);
-}
-
-.map-svg {
+.helicorder {
   width: 100%;
   height: 100%;
+  min-height: 220px;
+  flex: 1;
+  display: block;
+  background: #0c0908;
+  border: 1px solid var(--line);
+}
+
+/* ---------- Side bay: scope + status readouts ---------- */
+
+.side-bay {
+  background: var(--panel);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+/* ---------- Scope panel (secondary instrument) ---------- */
+
+.scope-panel {
+  position: relative;
+  border: 1px solid var(--line);
+  background: #0c0908;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.scope-label {
+  align-self: flex-start;
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ash);
+  opacity: 0.75;
+}
+
+.scope-svg {
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 1 / 1;
   display: block;
 }
 
-.map-ocean {
-  fill: #100d0b;
+.scope-bezel {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 2;
 }
 
-.map-land {
-  fill: #241d18;
-  stroke: rgba(226, 110, 88, 0.14);
+.scope-bezel-inner {
+  fill: none;
+  stroke: rgba(226, 110, 88, 0.3);
+  stroke-width: 1;
+}
+
+.scope-ocean {
+  fill: #0a0807;
+}
+
+.scope-land {
+  fill: #201a16;
+  stroke: rgba(226, 110, 88, 0.2);
   stroke-width: 0.6;
 }
 
-.map-ripple {
-  r: 1px;
+.scope-ring {
   fill: none;
-  stroke: var(--ripple-color, var(--ember));
-  stroke-width: 2.5px;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: ripple-expand var(--ripple-duration, 2000ms) ease-out forwards;
+  stroke: rgba(226, 110, 88, 0.14);
+  stroke-width: 0.5;
 }
 
-@keyframes ripple-expand {
-  0% {
-    r: 1px;
-    stroke-width: 3.5px;
-    opacity: 0.95;
-  }
-  100% {
-    r: var(--ripple-max, 60px);
-    stroke-width: 0.5px;
-    opacity: 0;
-  }
+.scope-blip {
+  fill: var(--ember-bright);
+  filter: drop-shadow(0 0 2px var(--ember));
 }
 
-.map-vignette {
-  position: fixed;
+.scope-sweep-line {
+  stroke: var(--ember-bright);
+  stroke-width: 1.2;
+  opacity: 0.85;
+}
+
+.scope-sweep-origin {
+  fill: var(--ember-bright);
+}
+
+.scope-vignette {
+  position: absolute;
   inset: 0;
-  z-index: 1;
   pointer-events: none;
-  background: radial-gradient(120% 100% at 50% 60%, transparent 40%, var(--deep-red) 100%);
+  background: radial-gradient(80% 80% at 50% 50%, transparent 45%, var(--deep-red) 100%);
   transition: opacity 1.2s ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .map-ripple {
-    animation: none !important;
-    opacity: 0;
-  }
-}
-
-/* ---------- Now-playing tray ---------- */
-
-.tray {
-  position: relative;
-  z-index: 5;
-  width: min(640px, 100%);
-  background: rgba(22, 19, 15, 0.72);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  backdrop-filter: blur(14px);
-  padding: 18px 22px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-}
-
-.tray-time {
-  font-size: 12px;
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-  color: var(--ember);
-  margin-bottom: 2px;
-}
-
-.tray-meta {
-  font-size: 13px;
-  color: var(--ash);
-  margin-bottom: 12px;
-  letter-spacing: 0.02em;
-}
-
-.visualizer {
-  width: 100%;
-  height: 48px;
-  display: block;
-  margin-bottom: 10px;
-}
-
-.tray-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.tray-play {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--deep-red);
-  color: var(--ash-bright);
-  font-size: 16px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.tray-volume {
-  flex: 1;
-}
-
-.tray-dot {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--ash);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.tray-dot:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.tray-dot--live {
-  color: var(--ember-bright);
-  animation: pulse-dot 1.2s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tray-dot--live {
-    animation: none;
-  }
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-.tray-download, .tray-drawer-toggle {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--ash);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  text-decoration: none;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.tray-drawer-toggle--open {
-  background: var(--deep-red);
-  color: var(--ash-bright);
-}
-
-.tray-error {
-  margin-top: 10px;
-  font-size: 12px;
-  color: var(--ember-bright);
 }
 
 /* ---------- Onboarding hint ---------- */
 
 .onboarding-hint {
-  position: absolute;
-  bottom: calc(100% + 14px);
-  left: 0;
-  right: 0;
-  background: rgba(22, 19, 15, 0.85);
+  position: relative;
+  z-index: 3;
+  background: rgba(16, 13, 11, 0.95);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   font-size: 13px;
   line-height: 1.5;
   color: var(--ash-bright);
-  animation: hint-in 0.4s ease;
+  margin-bottom: 10px;
+  animation: hint-in 0.3s ease;
 }
 
 @keyframes hint-in {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -262,85 +229,58 @@ button.ghost {
   background: transparent;
   border: 1px solid var(--line);
   color: var(--ash-bright);
-  border-radius: 8px;
   padding: 6px 10px;
   cursor: pointer;
   font-size: 12px;
 }
 
-/* ---------- Drawer ("Monitor") ---------- */
+/* ---------- Instrument rack (persistent, always-visible console) ---------- */
 
-.drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 8;
-  background: rgba(0, 0, 0, 0.45);
+.rack {
+  position: relative;
+  z-index: 2;
+  border-top: 1px solid var(--line);
+  background: #0e0b09;
+  padding: 10px 16px 14px;
 }
 
-.drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 9;
-  width: min(400px, 92vw);
-  background: rgba(17, 14, 11, 0.94);
-  border-left: 1px solid var(--line);
-  transform: translateX(100%);
-  transition: transform 0.28s ease;
-  overflow-y: auto;
-}
-
-.drawer--open {
-  transform: translateX(0);
-}
-
-.drawer-inner {
-  padding: 20px;
+.rack-readout {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  align-items: baseline;
+  gap: 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ash);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
 }
 
-.drawer-header {
+.rack-brand {
+  color: var(--ember);
+  letter-spacing: 0.18em;
+}
+
+.rack-meta {
+  letter-spacing: 0.02em;
+}
+
+.rack-modules {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--ash);
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.drawer-close {
-  background: transparent;
+.rack-module {
+  flex: 1 1 210px;
   border: 1px solid var(--line);
-  color: var(--ash-bright);
-  border-radius: 8px;
-  padding: 6px 10px;
-  cursor: pointer;
-  font-size: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 12px;
 }
 
-.drawer-footnote {
-  font-size: 11px;
-  color: var(--ash);
-  line-height: 1.5;
-  opacity: 0.8;
-}
-
-/* ---------- HUD cards / shared controls ---------- */
-
-.hud-card {
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 14px;
-}
-
-.hud-card h3 {
+.rack-module h3 {
   margin: 0 0 10px;
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ember);
@@ -350,34 +290,110 @@ button.ghost {
   justify-content: space-between;
 }
 
-.badge {
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  text-transform: none;
-  background: rgba(110, 31, 26, 0.5);
-  color: var(--ash-bright);
-  border-radius: 6px;
-  padding: 2px 6px;
+.rack-transport-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.segmented {
+.rack-play {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--ember);
+  background: var(--deep-red);
+  color: var(--ash-bright);
+  font-size: 15px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.rack-volume-label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ash);
+}
+
+.rack-volume-label .hud-range {
+  flex: 1;
+}
+
+.rack-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ash);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.rack-dot:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.rack-dot--live {
+  color: var(--ember-bright);
+  border-color: var(--ember);
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rack-dot--live { animation: none; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.rack-download {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ash);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.rack-error {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ember-bright);
+}
+
+/* Toggle switches (Live / Simulate, region picks) — always visible, never
+   behind a hidden drawer. */
+
+.toggle-track {
   display: flex;
   gap: 6px;
   margin-bottom: 10px;
 }
 
-.segmented-btn, .region-row .segmented-btn {
+.toggle-btn {
   flex: 1;
   background: transparent;
   border: 1px solid var(--line);
   color: var(--ash);
-  border-radius: 8px;
   padding: 8px 6px;
   font-size: 12px;
   cursor: pointer;
 }
 
-.segmented-btn--active {
+.toggle-btn--active {
   background: var(--deep-red);
   color: var(--ash-bright);
   border-color: var(--ember);
@@ -390,41 +406,21 @@ button.ghost {
   margin: 10px 0;
 }
 
-.region-row .segmented-btn {
+.region-row .toggle-btn {
   flex: 1 1 45%;
 }
 
-.live-status {
-  font-size: 12px;
-  color: var(--ash);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--ember-bright);
-  animation: pulse-dot 2s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .live-dot { animation: none; }
-}
-
-.threshold-row, .sim-sliders label, .mixer-sliders label {
+.dial-row {
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
+  font-family: var(--mono);
   color: var(--ash);
   margin-bottom: 10px;
 }
 
-.threshold-row b, .sim-sliders b, .mixer-sliders b {
+.dial-row b {
   color: var(--ash-bright);
   font-size: 13px;
 }
@@ -434,7 +430,6 @@ button.ghost {
   appearance: none;
   width: 100%;
   height: 4px;
-  border-radius: 2px;
   background: linear-gradient(90deg, var(--ember) calc(var(--val, 0) * 100%), var(--line) calc(var(--val, 0) * 100%));
   outline-offset: 4px;
 }
@@ -470,10 +465,92 @@ button.ghost {
   background: var(--deep-red);
   border: 1px solid var(--ember);
   color: var(--ash-bright);
-  border-radius: 8px;
   padding: 8px;
   font-size: 12px;
   cursor: pointer;
+}
+
+.rack-presets-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ash-bright);
+  padding: 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ---------- Presets modal (a genuine dialog, its own focus trap) ---------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-dialog {
+  width: min(420px, 100%);
+  max-height: 82vh;
+  overflow-y: auto;
+  background: rgba(14, 11, 9, 0.98);
+  border: 1px solid var(--line);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+
+.modal-close {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ash-bright);
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+/* ---------- HUD cards / shared controls ---------- */
+
+.hud-card {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line);
+  padding: 14px;
+}
+
+.hud-card h3 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ember);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.badge {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  background: rgba(110, 31, 26, 0.5);
+  color: var(--ash-bright);
+  padding: 2px 6px;
 }
 
 .preset-save-row {
@@ -486,7 +563,6 @@ button.ghost {
   flex: 1;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid var(--line);
-  border-radius: 8px;
   padding: 8px 10px;
   color: var(--ash-bright);
   font-size: 13px;
@@ -495,14 +571,12 @@ button.ghost {
 .preset-save-row:focus-within {
   outline: 2px solid var(--ember);
   outline-offset: 2px;
-  border-radius: 8px;
 }
 
 .preset-save-row button, .share-link-btn {
   background: transparent;
   border: 1px solid var(--line);
   color: var(--ash-bright);
-  border-radius: 8px;
   padding: 8px 12px;
   font-size: 12px;
   cursor: pointer;
@@ -558,7 +632,6 @@ button.ghost {
   background: transparent;
   border: 1px solid var(--line);
   color: var(--ash-bright);
-  border-radius: 8px;
   padding: 5px 8px;
   font-size: 11px;
   cursor: pointer;
@@ -580,7 +653,7 @@ button.ghost {
   font-size: 12px;
 }
 
-/* ---------- Status panel ---------- */
+/* ---------- Status panel (numeric readouts) ---------- */
 
 .status-panel {
   display: flex;
@@ -594,6 +667,7 @@ button.ghost {
   grid-template-columns: auto 1fr;
   gap: 4px 10px;
   font-size: 12px;
+  font-family: var(--mono);
 }
 
 .status-panel dt {
@@ -632,7 +706,6 @@ button.ghost {
   background: var(--deep-red);
   border: 1px solid var(--ember);
   color: var(--ash-bright);
-  border-radius: 8px;
   padding: 10px 18px;
   cursor: pointer;
 }

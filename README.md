@@ -1,6 +1,6 @@
 # Fault Line: A Tense Generative Soundscape from Real-Time Global Earthquakes
 
-A full-stack generative soundscape engine that composes and synthesizes sound **in real time, with no sample playback**: every drone layer, onset click, and aftershock echo is built from oscillators, noise, filters, and envelopes via the Web Audio API, continuously reshaped by the real-time global earthquake feed from the USGS Earthquake Hazards Program. The same feed drives a full-viewport animated world map: expanding ripple rings at each epicenter and a global vignette are the visual read-out of exactly what the audio engine is reacting to, not a themed skin bolted on afterward. Built with React, TypeScript, Tone.js, and Express — a sibling project to [Petrichor](../Petrichor) (which sonifies weather/time/activity into ambient music), pushed into a darker, tenser emotional register: a monitoring/unease instrument, not a cozy ambient one.
+A full-stack generative soundscape engine that composes and synthesizes sound **in real time, with no sample playback**: every drone layer, onset click, and aftershock echo is built from oscillators, noise, filters, and envelopes via the Web Audio API, continuously reshaped by the real-time global earthquake feed from the USGS Earthquake Hazards Program. The UI is a seismograph instrument console, not an ambient scene: a scrolling helicorder trace — sampling a real analyser node off the live master bus — is the hero of the screen, a small radar-style scope panel is a secondary docked readout, and every control lives in a permanently visible instrument rack. Built with React, TypeScript, Tone.js, and Express — a sibling project to [Petrichor](../Petrichor) (which sonifies weather/time/activity into ambient music), pushed into a darker, tenser emotional register: a monitoring/unease instrument, not a cozy ambient one.
 
 > **What it's for:** a self-playing soundscape you leave running in a tab while you work, where the tension in the room tracks the tension in the earth's crust. The sound engine, not just a themed visualizer, is the thing that was built here.
 
@@ -60,21 +60,23 @@ This project is for personal and educational use. It is **not an early-warning s
 - Installable app shell (`manifest.webmanifest` + a minimal same-origin service worker that deliberately never caches `/api/*`, so quakes/presets always stay live), with an SVG icon plus rasterized 192×192/512×512 PNGs for install flows that need them
 - **Screen Wake Lock** while the engine is playing, so a phone or tablet doesn't fall asleep mid-session, with automatic re-acquisition if the tab regains visibility
 
-### UI/UX: "Fault Line"
+### UI/UX: Seismograph Instrument Console
 
-- The background **is** the interface: a full-viewport equirectangular world map with a real land silhouette (`world-atlas` + `topojson-client`, no map-tile API/key), expanding ripple rings at each epicenter (radius/duration scaled by magnitude, color by depth), and a global vignette that visibly darkens/reddens as the unrest index rises. Ripple animation is skipped under `prefers-reduced-motion`
-- A single minimal glass "now playing" tray floats at the bottom: unrest %, dominant region, most recent quake, a live waveform, play/stop, volume, and record
-- Every other control (Simulate mode, threshold, per-layer mixer, presets, the full input/parameter readout) lives in a collapsible "Monitor" drawer styled as an instrument HUD
+- **The helicorder is the hero, not a backdrop.** A canvas-based scrolling strip-chart trace (`components/Helicorder.tsx`, `helicorder/traceBuffer.ts`) dominates the screen, sampling a real `Tone.Analyser` tapped off the `AudioEngine` master bus every frame — the drone and every triggered P/S onset visibly move the trace; it is not a decorative animation. History is kept in a fixed-size ring buffer and peak/valley-decimated to fit the canvas width so fast transients survive being squeezed to fewer pixels than samples. The sample rate slows (rather than freezing) under `prefers-reduced-motion`
+- **The world map is a demoted secondary instrument.** `components/ScopePanel.tsx` is a small, docked, circular sonar/radar-style scope: a rotating sweep line, fading epicenter blips, and the real land silhouette (`world-atlas` + `topojson-client`) clipped into the circle. Sweep and blip-decay math live in `scope/sweep.ts`; the sweep slows under `prefers-reduced-motion` instead of stopping
+- **The controls are a persistent instrument rack, never a hidden drawer.** `components/ConsoleRack.tsx` docks Transport (start/stop, volume, record), Source (a Live/Simulate toggle switch styled as a real switch, trigger threshold, and — while Simulate is active — magnitude/depth/region sliders and trigger buttons), and Mixer (per-layer sliders) permanently at the bottom of the layout. Nothing here is reachable only by first clicking a single icon to reveal it
+- **Presets get a genuine modal**, not a slide-out panel: `components/PresetsModal.tsx` opens from an always-visible "Open presets…" button in the rack, with its own focus trap, Escape-to-close, and focus returned to that button on close
 - Start/Stop gated behind a user gesture (per browser autoplay policy), with a Space-bar shortcut once the page has focus (ignored while typing in a text field)
 - **OS media controls** (`useMediaSession.ts`): publishes "Unrest · Threshold" as now-playing metadata with real play/pause controls to the lock screen, notification shade, Control Center, or Chrome's media widget
 - **Volume, mixer levels, and threshold persist** across reloads (`lib/localSettings.ts`)
-- Deliberately dark charcoal/ember/deep-red palette throughout, no light-mode toggle — a monitoring instrument doesn't make sense re-skinned bright
-- **First-run onboarding hint**: a one-time callout explaining what the engine reacts to, dismissed on "Got it" or automatically on first Start
+- **Visual language**: near-black chassis, a single ember/deep-red accent (no soft multi-hue gradient sky, no glassmorphism), monospace numeric readouts, a subtle scanline texture, and hard panel edges/bezels throughout — built to read as instrument-panel, not ambient scene
+- **First-run onboarding hint**: a one-time callout explaining what the trace reacts to and where the always-visible console lives, dismissed on "Got it" or automatically on first Start
 
 ### Resilience & Accessibility
 
 - **React error boundary** (`components/ErrorBoundary.tsx`): a top-level class component wraps the whole app, so a thrown error during render doesn't blank the page
-- **Monitor drawer is a real focus trap, not just a visual overlay**: the main view and the drawer toggle native `inert` on each other based on which is open. Opening the drawer moves focus to its close button; closing it returns focus to the toggle
+- **The console rack is fully keyboard-navigable** with a sensible tab order and visible focus rings on every control (toggle switches, sliders, transport buttons) — there is no hidden-drawer focus trap to maintain anymore, since nothing is hidden
+- **The Presets modal is a real focus trap**: `Tab`/`Shift+Tab` wrap inside the dialog, `Escape` closes it, opening moves focus to its close button, and the rest of the console is made `inert` while it's open
 - **Disambiguated per-item labels**: repeated "Load"/"Delete" buttons in the presets list carry item-specific `aria-label`s (e.g. "Load preset Swarm Watch")
 - **Visible focus retained everywhere inputs suppress the native outline**: the preset name field's focus ring comes from `:focus-within` on its parent row instead of disappearing
 
@@ -182,7 +184,7 @@ fault-line/
     │   └── icon-512.png
     └── src/
         ├── main.tsx              # SW registration (production builds only), wraps <App> in <ErrorBoundary>
-        ├── App.tsx               # wires the feed → seismology → mapping → engine → map/tray/drawer
+        ├── App.tsx               # wires the feed → seismology → mapping → engine → helicorder/scope/rack
         ├── types.ts
         ├── audio/
         │   ├── AudioEngine.ts        # the DSP: drone layers, P/S onset, Omori echoes, mixer, recording tap
@@ -204,6 +206,12 @@ fault-line/
         ├── map/
         │   ├── projection.ts         # equirectangular projection + ripple sizing (pure)
         │   └── projection.test.ts
+        ├── helicorder/
+        │   ├── traceBuffer.ts        # ring buffer, peak sampling, min/max decimation (pure)
+        │   └── traceBuffer.test.ts
+        ├── scope/
+        │   ├── sweep.ts              # sweep angle + blip-decay math (pure)
+        │   └── sweep.test.ts
         ├── inputs/
         │   ├── useQuakeFeed.ts       # polls the server's USGS proxy
         │   ├── useRecorder.ts        # MediaRecorder lifecycle → downloadable blob URL
@@ -222,11 +230,11 @@ fault-line/
         │   ├── parameterMapping.ts   # pure functions: unrest+region → SeismicParams, quake → TriggerParams
         │   └── parameterMapping.test.ts
         └── components/
-            ├── MapScene.tsx          # full-viewport animated background + ripples
-            ├── NowPlayingTray.tsx    # primary glass panel: unrest, region, transport
-            ├── ControlPanel.tsx      # Monitor drawer: threshold, simulate, mixer, presets
-            ├── StatusPanel.tsx       # compact input/parameter readout, inside the drawer
-            ├── Visualizer.tsx
+            ├── Helicorder.tsx        # hero: canvas scrolling strip-chart trace off the live analyser
+            ├── ScopePanel.tsx        # secondary: compact circular sonar/radar scope + land silhouette
+            ├── ConsoleRack.tsx       # persistent instrument rack: transport, source, threshold, mixer
+            ├── PresetsModal.tsx      # real modal dialog: save/load/delete presets, share link
+            ├── StatusPanel.tsx       # numeric readout panel, docked beside the scope
             ├── ErrorBoundary.tsx     # top-level render-error fallback
             └── OnboardingHint.tsx    # one-time first-run callout
 ```
@@ -291,7 +299,7 @@ npm test --prefix server         # Vitest + Supertest: health/quakes/presets rou
 npm test --prefix client         # Vitest: seismology math, mapping, projection, presetsStore fallback, etc.
 ```
 
-Coverage is intentionally scoped to deterministic, side-effect-free logic: every pure module in `seismology/`, `audio/seismicTheory.ts`, `mapping/parameterMapping.ts`, `map/projection.ts`, `lib/formatTime.ts`, `lib/shareLink.ts`, the preset store's network-failure fallback, and the Express routes (with `fetch` mocked and the data file redirected to a temp path via `PRESETS_DATA_FILE`). The stateful, Tone.js-dependent `AudioEngine` and the DOM-heavy `MapScene` component are exercised by manual/browser testing rather than unit tests, since they wrap live Web Audio nodes and SVG/CSS animation respectively — same testing philosophy as Petrichor.
+Coverage is intentionally scoped to deterministic, side-effect-free logic: every pure module in `seismology/`, `audio/seismicTheory.ts`, `mapping/parameterMapping.ts`, `map/projection.ts`, `helicorder/traceBuffer.ts`, `scope/sweep.ts`, `lib/formatTime.ts`, `lib/shareLink.ts`, the preset store's network-failure fallback, and the Express routes (with `fetch` mocked and the data file redirected to a temp path via `PRESETS_DATA_FILE`). The stateful, Tone.js-dependent `AudioEngine` and the DOM-heavy `Helicorder`/`ScopePanel` components are exercised by manual/browser testing rather than unit tests, since they wrap live Web Audio analyser nodes and canvas/SVG rendering respectively — same testing philosophy as Petrichor: the pure math each one is built on (ring-buffer/decimation math, sweep/blip-decay math) is fully unit-tested even though the rendering shell isn't.
 
 While building this, the actual USGS feed path turned out to differ from the one drafted in the initial spec (`/earthquakehazards/feed/...` 404s; the real path is `/earthquakes/feed/...`). It was caught by an end-to-end smoke test (booting the production server and curling `/api/quakes` for real) rather than by the unit suite, since the route tests mock `fetch` entirely — a good example of why the manual/integration check still matters even with high unit coverage of the surrounding logic.
 
@@ -308,6 +316,8 @@ While building this, the actual USGS feed path turned out to differ from the one
 - **No polyphony pooling for simultaneous trigger events.** A real swarm can produce quakes closer together than the P/S+Omori voices are built to gracefully overlap; rapid-fire triggers can retrigger the same synth voices rather than each getting an independent one.
 - **The PWA icons aren't maskable-safe.** The SVG and PNG icons are tagged `purpose: "any"`, not `"maskable"`; a maskable variant needs extra padding so OS icon masks don't clip the artwork.
 - React's `<StrictMode>` is intentionally omitted: its dev-mode double effect invocation tears down and rebuilds the live Tone.js audio graph mid-session, which is more confusing than useful here.
+- **The scope panel's land silhouette is a lossy fit, not a redrawn map.** `ScopePanel` reuses the same equirectangular projection as the old full-viewport map but renders it into a small rectangle clipped to a circle, so land near the poles gets cropped by the circular bezel rather than re-projected onto a true polar view — a deliberate small-instrument simplification, not a bug.
+- **The helicorder trace samples peak amplitude, not full waveform shape.** Each history column stores one peak value per sample tick (with min/max decimation to fit pixel width), which is enough to make onsets and drone density visibly legible at strip-chart scale but is not a faithful reproduction of the underlying waveform's fine structure.
 
 ---
 

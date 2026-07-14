@@ -9,7 +9,7 @@ html, body, #root {
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  /* Solid fallback only — the MapScene component owns the actual background. */
+  /* Solid fallback only — App.css's .console-app owns the actual instrument-panel background. */
   background: #0b0908;
   color: #ece6e2;
 }

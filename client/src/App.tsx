@@ -16,11 +16,12 @@ import {
   hasSeenOnboarding, loadStoredMix, loadStoredThreshold, loadStoredVolume, markOnboardingSeen,
   saveStoredMix, saveStoredThreshold, saveStoredVolume,
 } from './lib/localSettings';
-import { MapScene } from './components/MapScene';
-import { NowPlayingTray } from './components/NowPlayingTray';
+import { Helicorder } from './components/Helicorder';
+import { ScopePanel } from './components/ScopePanel';
 import { OnboardingHint } from './components/OnboardingHint';
-import { ControlPanel, type SimState } from './components/ControlPanel';
+import { ConsoleRack, type SimState } from './components/ConsoleRack';
 import { StatusPanel } from './components/StatusPanel';
+import { PresetsModal } from './components/PresetsModal';
 import type { EngineConfig, Preset, Quake, TectonicRegion } from './types';
 import './App.css';
 
@@ -58,10 +59,8 @@ export default function App() {
   if (!engineRef.current) engineRef.current = new AudioEngine();
 
   const mainRegionRef = useRef<HTMLDivElement>(null);
-  const drawerRef = useRef<HTMLElement>(null);
-  const drawerCloseRef = useRef<HTMLButtonElement>(null);
-  const drawerToggleRef = useRef<HTMLButtonElement>(null);
-  const drawerHasMounted = useRef(false);
+  const presetsButtonRef = useRef<HTMLButtonElement>(null);
+  const presetsModalHasMounted = useRef(false);
 
   const [started, setStarted] = useState(false);
   const [volume, setVolume] = useState(() => loadStoredVolume(0.8));
@@ -72,7 +71,7 @@ export default function App() {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [presetsSource, setPresetsSource] = useState<PresetSource>('server');
   const [presetName, setPresetName] = useState('');
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [presetsOpen, setPresetsOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
   const [events, setEvents] = useState<TrackedQuake[]>([]);
@@ -103,28 +102,20 @@ export default function App() {
     }
   }, []);
 
+  // The Presets dialog is a real modal: the rest of the console is made
+  // `inert` while it's open, and focus moves in on open / back to the
+  // triggering button on close — the same "only one region is reachable at
+  // a time" idea the old Monitor drawer used, but scoped to an actual
+  // dialog instead of a permanently-hidden control surface.
   useEffect(() => {
-    if (!drawerOpen) return undefined;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDrawerOpen(false);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [drawerOpen]);
+    if (mainRegionRef.current) mainRegionRef.current.inert = presetsOpen;
 
-  // Only one of the main view or the drawer is reachable by keyboard/screen
-  // reader at a time, matching what's visible.
-  useEffect(() => {
-    if (mainRegionRef.current) mainRegionRef.current.inert = drawerOpen;
-    if (drawerRef.current) drawerRef.current.inert = !drawerOpen;
-
-    if (!drawerHasMounted.current) {
-      drawerHasMounted.current = true;
+    if (!presetsModalHasMounted.current) {
+      presetsModalHasMounted.current = true;
       return;
     }
-    if (drawerOpen) drawerCloseRef.current?.focus();
-    else drawerToggleRef.current?.focus();
-  }, [drawerOpen]);
+    if (!presetsOpen) presetsButtonRef.current?.focus();
+  }, [presetsOpen]);
 
   // Ticks once a second so the unrest index keeps cooling down in real time
   // even when no new quakes arrive — it has real temporal memory, not just
@@ -321,93 +312,80 @@ export default function App() {
     }
   };
 
-  const mapQuakes = useMemo(
+  const scopeQuakes = useMemo(
     () => events.map((e) => ({ id: e.id, lon: e.lon, lat: e.lat, mag: e.mag, depthKm: e.depthKm })),
     [events],
   );
 
   return (
-    <div className="app">
-      <div ref={mainRegionRef}>
-        <MapScene quakes={mapQuakes} unrest={unrest} />
+    <div className="console-app">
+      <div ref={mainRegionRef} className="console-main">
+        <header className="console-header">
+          <span className="console-brand">FAULT LINE</span>
+          <span className="console-brand-sub">Seismograph Console</span>
+        </header>
 
-        <div className="brand">Fault Line</div>
+        <div className="console-grid">
+          <section className="helicorder-bay" aria-label="Live waveform">
+            {showOnboarding && <OnboardingHint onDismiss={dismissOnboarding} />}
+            <Helicorder analyser={engineRef.current.getAnalyser()} active={started} />
+          </section>
 
-        <main className="stage">
-          {showOnboarding && <OnboardingHint onDismiss={dismissOnboarding} />}
-          <NowPlayingTray
-            unrest={unrest}
-            dominantRegion={dominant}
-            lastQuake={lastQuake}
-            analyser={engineRef.current.getAnalyser()}
-            started={started}
-            onStart={handleStart}
-            onStop={handleStop}
-            volume={volume}
-            onVolumeChange={setVolume}
-            isRecording={recorder.isRecording}
-            recordingUrl={recorder.recordingUrl}
-            recordingError={recorder.error}
-            onStartRecording={recorder.start}
-            onStopRecording={recorder.stop}
-            drawerOpen={drawerOpen}
-            onToggleDrawer={() => setDrawerOpen((v) => !v)}
-            drawerToggleRef={drawerToggleRef}
-          />
-        </main>
+          <aside className="side-bay">
+            <ScopePanel quakes={scopeQuakes} unrest={unrest} />
+            <StatusPanel
+              unrest={unrest}
+              dominantRegion={dominant}
+              params={droneParams}
+              quakeCount={events.length}
+              lastQuake={lastQuake}
+            />
+          </aside>
+        </div>
+
+        <ConsoleRack
+          unrest={unrest}
+          dominantRegion={dominant}
+          lastQuake={lastQuake}
+          started={started}
+          onStart={handleStart}
+          onStop={handleStop}
+          volume={volume}
+          onVolumeChange={setVolume}
+          isRecording={recorder.isRecording}
+          recordingUrl={recorder.recordingUrl}
+          recordingError={recorder.error}
+          onStartRecording={recorder.start}
+          onStopRecording={recorder.stop}
+          simulate={simulate}
+          onToggleSimulate={setSimulate}
+          sim={sim}
+          onSimChange={(patch) => setSim((prev) => ({ ...prev, ...patch }))}
+          onTriggerOne={handleTriggerOne}
+          onTriggerSwarm={handleTriggerSwarm}
+          magnitudeThreshold={magnitudeThreshold}
+          onThresholdChange={handleThresholdChange}
+          mix={mix}
+          onMixChange={handleMixChange}
+          onOpenPresets={() => setPresetsOpen(true)}
+          presetsButtonRef={presetsButtonRef}
+        />
       </div>
 
-      {drawerOpen && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />}
-
-      <aside ref={drawerRef} className={`drawer${drawerOpen ? ' drawer--open' : ''}`} aria-hidden={!drawerOpen}>
-        <div className="drawer-inner">
-          <div className="drawer-header">
-            <span>Monitor</span>
-            <button ref={drawerCloseRef} className="drawer-close" onClick={() => setDrawerOpen(false)}>
-              ✕ Close
-            </button>
-          </div>
-
-          <ControlPanel
-            simulate={simulate}
-            onToggleSimulate={setSimulate}
-            sim={sim}
-            onSimChange={(patch) => setSim((prev) => ({ ...prev, ...patch }))}
-            onTriggerOne={handleTriggerOne}
-            onTriggerSwarm={handleTriggerSwarm}
-            magnitudeThreshold={magnitudeThreshold}
-            onThresholdChange={handleThresholdChange}
-            mix={mix}
-            onMixChange={handleMixChange}
-            presets={presets}
-            presetsSource={presetsSource}
-            presetName={presetName}
-            onPresetNameChange={setPresetName}
-            onSavePreset={handleSavePreset}
-            onLoadPreset={handleLoadPreset}
-            onDeletePreset={handleDeletePreset}
-            onCopyShareLink={handleCopyShareLink}
-            linkCopied={linkCopied}
-          />
-
-          <StatusPanel
-            unrest={unrest}
-            dominantRegion={dominant}
-            params={droneParams}
-            quakeCount={events.length}
-            lastQuake={lastQuake}
-          />
-
-          <p className="drawer-footnote">
-            Synthesis engine built entirely from Tone.js oscillators, noise, filters, and envelopes (no samples).
-            Quakes via the USGS Earthquake Hazards Program.
-          </p>
-          <p className="drawer-footnote">
-            Every quake plays a quiet P click followed by a stronger S arrival after a physically-computed
-            delay, and significant quakes (M6+) add a decaying Omori-law aftershock echo train.
-          </p>
-        </div>
-      </aside>
+      {presetsOpen && (
+        <PresetsModal
+          presets={presets}
+          presetsSource={presetsSource}
+          presetName={presetName}
+          onPresetNameChange={setPresetName}
+          onSavePreset={handleSavePreset}
+          onLoadPreset={handleLoadPreset}
+          onDeletePreset={handleDeletePreset}
+          onCopyShareLink={handleCopyShareLink}
+          linkCopied={linkCopied}
+          onClose={() => setPresetsOpen(false)}
+        />
+      )}
     </div>
   );
 }

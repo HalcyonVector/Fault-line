@@ -133,26 +133,36 @@
   min-height: 0;
   display: grid;
   grid-template-columns: 1.6fr 1fr;
-  /* All three left-column rows keep a definite `fr` share so the grid's
-     total height resolves cleanly against the viewport (an unconstrained
-     `auto` track here previously caused a runaway intrinsic-sizing feedback
-     loop with the flex:1 map panel, blowing the whole page out to several
-     times the viewport height). Board gets the largest floor and share
-     since it's an interactive, worth-the-room map, and a taller floor keeps
-     it from reading as a thin banner strip on a wide-but-short window. The
-     console row keeps a real minimum too, not a bare `auto`, since a bare
-     `auto` track has no floor at all and gets crushed first whenever
-     vertical space is tight; its own content also scrolls internally now
-     (see .aftershock-standby / .aftershock-body) as a backstop so it can
-     never visually spill into the Site Status row below it, no matter how
-     short the window gets. Site Status keeps a smaller floor since its
-     cards no longer need to stretch to fill the row (see .site-grid-tiles
-     below); any leftover row height is just quiet empty space under the
-     card grid, not space forced into each card. */
-  grid-template-rows: minmax(360px, 1.5fr) minmax(120px, auto) minmax(200px, 1fr);
+  /* The Aftershock Decision Console gets its own full-width row instead of
+     being squeezed into just the left column: it's the one panel that's
+     genuinely urgent when it's active (it visibly glows, see
+     .aftershock-console-active), so it reads more like an alert banner than
+     a card competing for space next to the map, and it no longer looks
+     disproportionately cramped in its quiet standby state either. Board and
+     Site Status keep a definite `fr` share so the grid's total height
+     resolves cleanly against the viewport (an unconstrained `auto` track
+     here previously caused a runaway intrinsic-sizing feedback loop with the
+     flex:1 map panel, blowing the whole page out to several times the
+     viewport height); Intelligence Feed now spans just those two rows
+     instead of three.
+
+     Every floor is `min(Npx, Mvh)`, not a bare `Npx`, on purpose: a bare
+     pixel floor is an absolute lower bound that doesn't care how short the
+     actual viewport is, and floors summed across rows can straightforwardly
+     exceed a short-but-real browser window, forcing the whole page past
+     100vh and into an outer scrollbar (which is exactly what happened when
+     an earlier pass raised the board floor to fix it reading as a thin
+     banner). Capping each floor at a share of the viewport height means they
+     shrink together on a short window instead of forcing outer scroll; only
+     the fr portion (which only ever divides genuinely leftover space) still
+     governs sizing on a tall one. */
+  grid-template-rows:
+    minmax(min(90px, 11vh), auto)
+    minmax(min(360px, 42vh), 1.6fr)
+    minmax(min(190px, 26vh), 1fr);
   grid-template-areas:
+    'console console'
     'board intel'
-    'console intel'
     'sites intel';
   gap: 14px;
   padding: 14px;
@@ -162,8 +172,8 @@
   .ops-grid {
     grid-template-columns: 1fr;
     grid-template-areas:
-      'board'
       'console'
+      'board'
       'sites'
       'intel';
   }
@@ -233,11 +243,11 @@
 }
 
 .board-ocean {
-  fill: #050d10;
+  fill: #0a0703;
 }
 
 .board-land {
-  fill: #0e2228;
+  fill: #241a10;
   stroke: var(--ochre-dim);
   stroke-width: 0.4;
   vector-effect: non-scaling-stroke;
@@ -284,7 +294,7 @@
 }
 
 .board-site-dot {
-  stroke: #04090a;
+  stroke: #080502;
   stroke-width: 1;
 }
 
@@ -884,7 +894,7 @@
 
 input, select, button {
   font-family: var(--mono);
-  background: #04090b;
+  background: #0a0603;
   color: var(--text);
   border: 1px solid var(--line);
   padding: 4px 6px;

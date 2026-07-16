@@ -127,15 +127,22 @@
   display: grid;
   grid-template-columns: 1.6fr 1fr;
   /* All three left-column rows keep a definite `fr` share so the grid's
-     total height resolves cleanly against the viewport (an `auto` track
-     here previously caused a runaway intrinsic-sizing feedback loop with
-     the flex:1 map panel, blowing the whole page out to several times the
-     viewport height). Board gets the larger share now that it's an
-     interactive, worth-the-room map; Site Status keeps a smaller floor
-     since its cards no longer need to stretch to fill the row (see
-     .site-grid-tiles below); any leftover row height is just quiet empty
-     space under the card grid, not space forced into each card. */
-  grid-template-rows: minmax(300px, 1.3fr) auto minmax(200px, 1fr);
+     total height resolves cleanly against the viewport (an unconstrained
+     `auto` track here previously caused a runaway intrinsic-sizing feedback
+     loop with the flex:1 map panel, blowing the whole page out to several
+     times the viewport height). Board gets the largest floor and share
+     since it's an interactive, worth-the-room map, and a taller floor keeps
+     it from reading as a thin banner strip on a wide-but-short window. The
+     console row keeps a real minimum too, not a bare `auto`, since a bare
+     `auto` track has no floor at all and gets crushed first whenever
+     vertical space is tight; its own content also scrolls internally now
+     (see .aftershock-standby / .aftershock-body) as a backstop so it can
+     never visually spill into the Site Status row below it, no matter how
+     short the window gets. Site Status keeps a smaller floor since its
+     cards no longer need to stretch to fill the row (see .site-grid-tiles
+     below); any leftover row height is just quiet empty space under the
+     card grid, not space forced into each card. */
+  grid-template-rows: minmax(360px, 1.5fr) minmax(120px, auto) minmax(200px, 1fr);
   grid-template-areas:
     'board intel'
     'console intel'
@@ -615,6 +622,8 @@
   align-items: flex-start;
   gap: 14px;
   padding: 16px 20px;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .aftershock-standby-indicator {
@@ -674,6 +683,8 @@
   align-items: center;
   gap: 16px;
   padding: 12px;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .aftershock-mainshock {

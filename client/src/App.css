@@ -630,10 +630,19 @@
 .aftershock-standby {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
+  gap: 24px;
   padding: 16px 20px;
   min-height: 0;
   overflow-y: auto;
+  /* Explicit width: 100%, not just relying on the parent flex column's
+     default align-items: stretch — a `margin: auto` used for centering on
+     a flex item overrides that stretch on the cross axis (the browser sizes
+     the item to its content and uses the auto margins to center the leftover
+     space instead), which silently undid the "fill the row" goal here the
+     first time this was written. Copy grows via flex: 1 up to its own
+     readable-width cap; criteria is fixed-width and pinned to the right by
+     the divider. */
+  width: 100%;
 }
 
 .aftershock-standby-indicator {
@@ -666,6 +675,8 @@
 }
 
 .aftershock-standby-copy {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -681,10 +692,41 @@
 
 .aftershock-standby-detail {
   margin: 0;
-  max-width: 62ch;
+  max-width: 80ch;
   font-size: 11px;
   color: var(--text-dim);
   line-height: 1.6;
+}
+
+.aftershock-standby-criteria {
+  flex-shrink: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+
+.aftershock-criterion {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 100px;
+}
+
+.aftershock-criterion-label {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.aftershock-criterion-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ochre);
 }
 
 .aftershock-body {

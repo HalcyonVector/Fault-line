@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ActiveAftershockWindow, Site } from '../types';
-import { damagingAftershockProbability } from '../seismology/omoriAftershocks';
+import { damagingAftershockProbability, OMORI_CONSTANTS } from '../seismology/omoriAftershocks';
 
 const FORECAST_HORIZON_HOURS = 1;
 const TICK_MS = 250;
@@ -55,11 +55,25 @@ export function AftershockConsole({ window: win, sites, budget, onCommit, commit
           <div className="aftershock-standby-copy">
             <p className="aftershock-standby-title">Monitoring the live feed for a significant mainshock</p>
             <p className="aftershock-standby-detail">
-              A decision window opens automatically for ~60-90 real seconds whenever a live mainshock crosses M6 (or
-              high USGS significance), whether it lands near a monitored site or is simply globally notable. That
-              gives you a real-time chance to commit resilience budget to an emergency response before it locks into
-              the permanent ledger.
+              Whether it lands near a monitored site or is simply globally notable, a decision window opens
+              automatically the moment a live mainshock crosses the trigger criteria shown here, giving you a
+              real-time chance to commit resilience budget to an emergency response before it locks into the
+              permanent ledger.
             </p>
+          </div>
+          <div className="aftershock-standby-criteria">
+            <div className="aftershock-criterion">
+              <span className="aftershock-criterion-label">Trigger magnitude</span>
+              <span className="aftershock-criterion-value">M{OMORI_CONSTANTS.MIN_MAGNITUDE_FOR_WINDOW.toFixed(1)}+</span>
+            </div>
+            <div className="aftershock-criterion">
+              <span className="aftershock-criterion-label">or USGS significance</span>
+              <span className="aftershock-criterion-value">&ge;{OMORI_CONSTANTS.MIN_SIG_FOR_WINDOW}</span>
+            </div>
+            <div className="aftershock-criterion">
+              <span className="aftershock-criterion-label">Decision window</span>
+              <span className="aftershock-criterion-value">~60-90s</span>
+            </div>
           </div>
         </div>
       )}

@@ -2,7 +2,7 @@
 // fault system. Coordinates are approximate city centers. `recurrenceYears`
 // and `lastMajorRuptureYear` are rough, rounded figures assembled from public
 // seismology summaries (USGS earthquake summaries, published paleoseismic
-// studies) for a hobby project — NOT authoritative hazard data, and they
+// studies) for a hobby project, NOT authoritative hazard data, and they
 // carry real uncertainty (some, like Hikurangi's, are little more than an
 // order-of-magnitude estimate). See the README's Honest Limitations section.
 // None of this is early-warning, prediction, or safety guidance of any kind.
@@ -49,7 +49,7 @@ export const SITES = [
     faultSystem: 'Main Frontal Thrust (Himalayan collision)',
     recurrenceYears: 500,
     lastMajorRuptureYear: 1934,
-    note: 'Great Himalayan earthquakes on this collision front repeat on the order of centuries; 1934 Bihar-Nepal (M~8.0) is treated here as the last full-strain release near this segment — 2015 Gorkha (M7.8) is considered by many seismologists to have only partially released the accumulated strain.',
+    note: 'Great Himalayan earthquakes on this collision front repeat on the order of centuries; 1934 Bihar-Nepal (M~8.0) is treated here as the last full-strain release near this segment; 2015 Gorkha (M7.8) is considered by many seismologists to have only partially released the accumulated strain.',
   },
   {
     id: 'santiago',

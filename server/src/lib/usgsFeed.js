@@ -35,7 +35,7 @@ function normalizeFeature(feature) {
 
 /**
  * Returns `{ quakes, feed, fetchedAt, cached }`. Throws on upstream failure
- * (callers decide how to surface that — the route returns 502, the world
+ * (callers decide how to surface that: the route returns 502, the world
  * engine just skips this ingestion pass and tries again next time it's read).
  */
 export async function fetchQuakes() {

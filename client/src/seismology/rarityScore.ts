@@ -5,13 +5,13 @@ import { depthBand } from './energyMapping';
 // exponentially rarer) combined with a depth-band rarity multiplier (most
 // earthquakes are shallow; deep events are statistically anomalous). Both
 // halves are grounded in real global catalog statistics, kept deliberately
-// simple — see the README's Honest Limitations.
+// simple; see the README's Honest Limitations.
 
 const B_VALUE = 1.0; // Gutenberg-Richter b-value, typical global average
 const REFERENCE_MAGNITUDE = 4.5; // "unremarkable, routinely-observed" baseline
 
 // Rough global proportions of earthquakes by USGS depth band (shallow <70km,
-// intermediate 70-300km, deep >300km) — approximate figures from published
+// intermediate 70-300km, deep >300km), approximate figures from published
 // global catalog summaries, not a precise calibration.
 const DEPTH_BAND_FREQUENCY: Record<ReturnType<typeof depthBand>, number> = {
   shallow: 0.75,

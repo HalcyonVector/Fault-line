@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { feature } from 'topojson-client';
-// world-atlas ships pre-built TopoJSON land data (ISC-licensed) — real
+// world-atlas ships pre-built TopoJSON land data (ISC-licensed): real
 // cartography, no map-tile API/key needed. Restyled here as a tactical
 // threat-board display, not an ambient hero background.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -9,7 +9,7 @@ import worldTopology from 'world-atlas/land-110m.json';
 import { geometryToSvgPath, projectEquirectangular } from '../map/projection';
 import {
   clampPan,
-  computeContainFit,
+  computeCoverFit,
   zoomAroundPoint,
   MAX_ZOOM_MULTIPLIER,
   type ViewTransform,
@@ -17,7 +17,7 @@ import {
 import { dragReducer, wasClick, IDLE_DRAG_STATE, type DragState } from '../map/dragState';
 import type { Quake, Site } from '../types';
 
-// Fixed "world space" the equirectangular projection lives in — a true 2:1
+// Fixed "world space" the equirectangular projection lives in: a true 2:1
 // (360deg lon : 180deg lat) plate-carree aspect, so a degree of longitude
 // and a degree of latitude cover the same number of pixels. The container
 // can be any pixel size/aspect; see `panZoom.ts` for how we fit this world
@@ -54,7 +54,7 @@ export function ThreatBoard({ sites, recentQuakes, onSelectSite, selectedSiteId 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [containerSize, setContainerSize] = useState({ width: WORLD_WIDTH, height: WORLD_HEIGHT });
-  const [baseFit, setBaseFit] = useState<ViewTransform>(() => computeContainFit(WORLD_WIDTH, WORLD_HEIGHT, WORLD_WIDTH, WORLD_HEIGHT));
+  const [baseFit, setBaseFit] = useState<ViewTransform>(() => computeCoverFit(WORLD_WIDTH, WORLD_HEIGHT, WORLD_WIDTH, WORLD_HEIGHT));
   const [view, setView] = useState<ViewTransform>(baseFit);
 
   const dragRef = useRef<DragState>(IDLE_DRAG_STATE);
@@ -67,14 +67,14 @@ export function ThreatBoard({ sites, recentQuakes, onSelectSite, selectedSiteId 
   const applyContainerSize = useCallback((width: number, height: number) => {
     if (width <= 0 || height <= 0) return;
     setContainerSize({ width, height });
-    const fit = computeContainFit(WORLD_WIDTH, WORLD_HEIGHT, width, height);
+    const fit = computeCoverFit(WORLD_WIDTH, WORLD_HEIGHT, width, height);
     setBaseFit(fit);
     setView(fit);
   }, []);
 
   // Measure synchronously on mount (before paint) so the very first render
   // already reflects the panel's real size, rather than waiting on
-  // ResizeObserver's first callback — which some environments (e.g. a
+  // ResizeObserver's first callback, which some environments (e.g. a
   // backgrounded/hidden browser tab) can defer indefinitely.
   useLayoutEffect(() => {
     const el = containerRef.current;
@@ -131,12 +131,12 @@ export function ThreatBoard({ sites, recentQuakes, onSelectSite, selectedSiteId 
 
   const handlePointerDown = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
     // setPointerCapture can throw if the browser doesn't consider this
-    // pointerId "active" (defensive only — real pointer/touch input always
+    // pointerId "active" (defensive only, real pointer/touch input always
     // qualifies); don't let that abort the rest of the gesture tracking.
     try {
       (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
     } catch {
-      // ignore — dragging still works without capture, just less robust
+      // Ignored: dragging still works without capture, just less robust
       // to the pointer leaving the element's bounds mid-drag.
     }
     const rect = e.currentTarget.getBoundingClientRect();
@@ -239,7 +239,7 @@ export function ThreatBoard({ sites, recentQuakes, onSelectSite, selectedSiteId 
           viewBox={`0 0 ${containerSize.width} ${containerSize.height}`}
           className="threat-board-svg"
           role="img"
-          aria-label="World map with monitored sites and recent seismic activity — draggable and zoomable"
+          aria-label="World map with monitored sites and recent seismic activity, draggable and zoomable"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={endGesture}

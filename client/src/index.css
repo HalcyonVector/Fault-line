@@ -9,7 +9,7 @@ html, body, #root {
 body {
   margin: 0;
   font-family: 'JetBrains Mono', 'SFMono-Regular', 'Consolas', ui-monospace, monospace;
-  /* Solid fallback only — App.css's .ops-app owns the real HUD background. */
+  /* Solid fallback only: App.css's .ops-app owns the real HUD background. */
   background: #050708;
   color: #d8f4ff;
 }

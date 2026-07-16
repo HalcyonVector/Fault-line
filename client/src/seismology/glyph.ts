@@ -1,7 +1,7 @@
 // A small deterministic "waveform" glyph for the intelligence log: a fixed
 // number of bar heights seeded entirely from a quake's own id/magnitude/depth,
 // so the same event always renders identically (no per-render randomness).
-// Purely decorative — the rarity *number* next to it is what's meaningful,
+// Purely decorative: the rarity *number* next to it is what's meaningful,
 // not this shape (see rarityScore.ts).
 
 function hashString(s: string): number {

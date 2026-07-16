@@ -1,5 +1,5 @@
 // Seismic-gap "overdue pressure": a purely informational strategic signal,
-// independent of the live feed. It never triggers anything by itself — it's
+// independent of the live feed. It never triggers anything by itself; it's
 // there so an operator can choose to pre-invest resilience in a site that's
 // statistically overdue even though nothing has happened there (yet).
 

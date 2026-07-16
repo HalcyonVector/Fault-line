@@ -7,7 +7,7 @@ const router = Router();
 
 // GET /api/world runs a processing pass every time it's read (regen budget,
 // finalize expired aftershock windows, ingest any not-yet-seen live quakes)
-// rather than via a background daemon — simple, and correct in the same
+// rather than via a background daemon, simple, and correct in the same
 // sense the resilience budget's regen is: it's always recomputed from real
 // wall-clock time, whenever someone happens to look. Every read/mutate/write
 // against the shared file goes through `transact`, which queues concurrent

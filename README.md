@@ -1,16 +1,16 @@
 # Fault Line: A Live Seismic Operations Command
 
-A full-stack ops-center dashboard for a shared, persistent world: you manage a portfolio of six real cities sitting on six genuinely different real fault systems, and the **only clock driving the core loop is the live USGS Earthquake Hazards Program feed** — there is no simulated RNG anywhere in this game. When a real earthquake resolves against one of your sites, the outcome is computed from a real attenuation model and written permanently to an append-only historical ledger. It can never be undone, replayed, or reset. This is deliberately **one shared server-side world, not a per-browser session** — refreshing the page, or opening it on a different device, shows the same ongoing history, because it's tracking one real, ongoing thing, not a resettable game.
+A full-stack ops-center dashboard for a shared, persistent world: you manage a portfolio of six real cities sitting on six genuinely different real fault systems, and the **only clock driving the core loop is the live USGS Earthquake Hazards Program feed**: there is no simulated RNG anywhere in this game. When a real earthquake resolves against one of your sites, the outcome is computed from a real attenuation model and written permanently to an append-only historical ledger. It can never be undone, replayed, or reset. This is deliberately **one shared server-side world, not a per-browser session**: refreshing the page, or opening it on a different device, shows the same ongoing history, because it's tracking one real, ongoing thing, not a resettable game.
 
-Built with React, TypeScript, Express, and the same live USGS GeoJSON feed the project has used since its first iteration — a sibling project to [Petrichor](../Petrichor), but a deliberate visual and conceptual departure from it (see "UI Direction" below).
+Built with React, TypeScript, Express, and the same live USGS GeoJSON feed the project has used since its first iteration, a sibling project to [Petrichor](../Petrichor), but a deliberate visual and conceptual departure from it (see "UI Direction" below).
 
-> This project went through two prior full builds as a real-time audio-sonification engine (Tone.js synthesis reacting to earthquake data) before this pivot. The audio-sonification premise has been fully retired — there is no audio anywhere in this codebase anymore. What's kept from that era is the *domain math*: the Omori-Utsu aftershock decay law, the magnitude-energy scaling, and the tectonic-region classifier all transferred over, repurposed for a genuinely different mechanic instead of being thrown away.
+> This project went through two prior full builds as a real-time audio-sonification engine (Tone.js synthesis reacting to earthquake data) before this pivot. The audio-sonification premise has been fully retired: there is no audio anywhere in this codebase anymore. What's kept from that era is the *domain math*: the Omori-Utsu aftershock decay law, the magnitude-energy scaling, and the tectonic-region classifier all transferred over, repurposed for a genuinely different mechanic instead of being thrown away.
 
 ---
 
 ## Disclaimer
 
-**This is not an early-warning system, a seismic hazard tool, or a safety-critical application of any kind, and it makes no claims to that effect.** The attenuation/damage model is a deliberately simplified approximation, not a real ShakeMap. The recurrence intervals and "last major rupture" years for each site are rough, rounded figures assembled from public seismology summaries for a hobby project — not authoritative hazard data, and several of them carry real, acknowledged uncertainty. Nothing in this app predicts, forecasts with any real accuracy, or provides guidance for real-world safety decisions. See "Honest Limitations" below for the specifics.
+**This is not an early-warning system, a seismic hazard tool, or a safety-critical application of any kind, and it makes no claims to that effect.** The attenuation/damage model is a deliberately simplified approximation, not a real ShakeMap. The recurrence intervals and "last major rupture" years for each site are rough, rounded figures assembled from public seismology summaries for a hobby project, not authoritative hazard data, and several of them carry real, acknowledged uncertainty. Nothing in this app predicts, forecasts with any real accuracy, or provides guidance for real-world safety decisions. See "Honest Limitations" below for the specifics.
 
 ---
 
@@ -31,24 +31,24 @@ The live feed is real. Every quake it reports is checked against every site's re
 
 ### Core systems
 
-1. **Portfolio of real sites** (`server/src/lib/sites.js`) — coordinates, fault-system name, recurrence interval, and last-major-rupture year for each of the six sites above.
-2. **Real attenuation damage model** (`server/src/lib/damageModel.js`) — haversine distance from quake to site, a simplified MMI-like shaking-intensity estimate from magnitude/depth/distance, and damage scaled down (never to zero) by the site's current resilience. Pure, unit-tested functions.
-3. **Resilience budget with real-time regen** — a single shared budget (starts at 100, cap 100) that regenerates `+1/hour` of real wall-clock time, server-tracked (`server/src/lib/worldStore.js`, `worldEngine.js`). You spend it to raise a site's resilience (0-100), and because it only regenerates in real time, every allocation is a genuine opportunity cost.
-4. **Omori-Utsu + Gutenberg-Richter aftershock decision window** — when a live mainshock crosses M6 (or a high USGS `sig`), a ~75-second real-time decision window opens. `client/src/seismology/omoriAftershocks.ts` computes a live, continuously-updating probability of a damaging aftershock by integrating the real Omori-Utsu decay law over a forecast horizon and combining it with the Gutenberg-Richter magnitude-frequency relation (a simplified Reasenberg-Jones-style combination). You can commit available resilience budget to a site's emergency response before the window closes; whatever you decide (or don't) locks permanently into the ledger.
-5. **Seismic-gap overdue-pressure gauge** (`server/src/lib/overduePressure.js`) — (years since last major rupture) / (recurrence interval) for every site, shown continuously. This is purely informational — it never triggers anything itself, since there's no simulated RNG in the core loop — it exists so you can strategically pre-invest resilience in a site that's statistically overdue even though nothing has happened there yet.
-6. **Global intelligence log with rarity scoring** (`client/src/seismology/rarityScore.ts`) — every real quake globally (not just ones touching your sites) streams into a scrolling log, each tagged with an objective rarity score from real magnitude/depth frequency relationships (bigger and/or anomalously deep events score higher, via a Gutenberg-Richter-style magnitude multiplier and a global depth-band frequency multiplier) plus a small deterministic glyph (`client/src/seismology/glyph.ts`) generated from the event's own stats.
+1. **Portfolio of real sites** (`server/src/lib/sites.js`): coordinates, fault-system name, recurrence interval, and last-major-rupture year for each of the six sites above.
+2. **Real attenuation damage model** (`server/src/lib/damageModel.js`): haversine distance from quake to site, a simplified MMI-like shaking-intensity estimate from magnitude/depth/distance, and damage scaled down (never to zero) by the site's current resilience. Pure, unit-tested functions.
+3. **Resilience budget with real-time regen**: a single shared budget (starts at 100, cap 100) that regenerates `+1/hour` of real wall-clock time, server-tracked (`server/src/lib/worldStore.js`, `worldEngine.js`). You spend it to raise a site's resilience (0-100), and because it only regenerates in real time, every allocation is a genuine opportunity cost.
+4. **Omori-Utsu + Gutenberg-Richter aftershock decision window**: when a live mainshock crosses M6 (or a high USGS `sig`), a ~75-second real-time decision window opens. `client/src/seismology/omoriAftershocks.ts` computes a live, continuously-updating probability of a damaging aftershock by integrating the real Omori-Utsu decay law over a forecast horizon and combining it with the Gutenberg-Richter magnitude-frequency relation (a simplified Reasenberg-Jones-style combination). You can commit available resilience budget to a site's emergency response before the window closes; whatever you decide (or don't) locks permanently into the ledger.
+5. **Seismic-gap overdue-pressure gauge** (`server/src/lib/overduePressure.js`): (years since last major rupture) / (recurrence interval) for every site, shown continuously. This is purely informational; it never triggers anything itself, since there's no simulated RNG in the core loop. It exists so you can strategically pre-invest resilience in a site that's statistically overdue even though nothing has happened there yet.
+6. **Global intelligence log with rarity scoring** (`client/src/seismology/rarityScore.ts`): every real quake globally (not just ones touching your sites) streams into a scrolling log, each tagged with an objective rarity score from real magnitude/depth frequency relationships (bigger and/or anomalously deep events score higher, via a Gutenberg-Richter-style magnitude multiplier and a global depth-band frequency multiplier) plus a small deterministic glyph (`client/src/seismology/glyph.ts`) generated from the event's own stats.
 
 ---
 
 ## UI Direction: Sci-Fi Operations Command
 
-This is a deliberate departure from both [Petrichor](../Petrichor)'s and a planned sibling "ISS orbital drone" project's visual language — a single full-viewport ambient world map with a soft glassmorphism card floating over it. Fault Line instead reads as a **NORAD/mission-control HUD**: multiple panels simultaneously visible at all times (a global threat-board map, a site-status grid, a scrolling intelligence log, and an aftershock decision console that visibly lights up only when a window is open) — nothing is hidden behind a single icon that reveals a slide-out drawer. Cool cyan/electric-blue lines on near-black, monospace type, scanlines and a radar-sweep motif on the threat board, sharp panel edges rather than rounded glass cards, and a glitch-style flash when a new event lands in the intelligence log.
+This is a deliberate departure from both [Petrichor](../Petrichor)'s and a planned sibling "ISS orbital drone" project's visual language: a single full-viewport ambient world map with a soft glassmorphism card floating over it. Fault Line instead reads as a **NORAD/mission-control HUD**: multiple panels simultaneously visible at all times (a global threat-board map, a site-status grid, a scrolling intelligence log, and an aftershock decision console that visibly lights up only when a window is open); nothing is hidden behind a single icon that reveals a slide-out drawer. Cool cyan/electric-blue lines on near-black, monospace type, scanlines and a radar-sweep motif on the threat board, sharp panel edges rather than rounded glass cards, and a glitch-style flash when a new event lands in the intelligence log.
 
 ---
 
 ## Data Source
 
-Real-time GeoJSON summary feeds from the [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/) — free, no API key, updated roughly every minute:
+Real-time GeoJSON summary feeds from the [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/): free, no API key, updated roughly every minute:
 
 ```
 https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/{feed}.geojson
@@ -56,7 +56,7 @@ https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/{feed}.geojson
 
 The server polls `all_day` by default (`USGS_FEED` env var to override). The world engine and the `/api/quakes` proxy share one in-memory cache (`server/src/lib/usgsFeed.js`) with a 35-second TTL, comfortably under USGS's own ~60-second update cadence.
 
-**World processing happens lazily, on read** (`GET /api/world`), not via a background daemon: every time the endpoint is hit, the server regenerates the resilience budget from elapsed wall-clock time, finalizes any expired aftershock decision window into the ledger, and ingests any not-yet-seen live quakes against the site portfolio. This is simple and correct in the same sense the budget regen is — it's always computed from real time, whenever someone happens to look — but it does mean ingestion pauses while nobody is polling the app. See Honest Limitations.
+**World processing happens lazily, on read** (`GET /api/world`), not via a background daemon: every time the endpoint is hit, the server regenerates the resilience budget from elapsed wall-clock time, finalizes any expired aftershock decision window into the ledger, and ingests any not-yet-seen live quakes against the site portfolio. This is simple and correct in the same sense the budget regen is: it's always computed from real time, whenever someone happens to look, but it does mean ingestion pauses while nobody is polling the app. See Honest Limitations.
 
 ---
 
@@ -64,16 +64,16 @@ The server polls `all_day` by default (`USGS_FEED` env var to override). The wor
 
 | Layer | Technology | Details |
 |-------|-----------|---------|
-| **Frontend Framework** | React 18 + TypeScript | Vite dev server + build, strict TS config, `<StrictMode>` enabled (safe now — no live audio graph to double-invoke effects against) |
+| **Frontend Framework** | React 18 + TypeScript | Vite dev server + build, strict TS config, `<StrictMode>` enabled (safe now, no live audio graph to double-invoke effects against) |
 | **State** | React hooks + polling | `useQuakeFeed` (global feed), `useWorldState` (shared server world); no external state library needed |
-| **Map** | `world-atlas` (land-110m TopoJSON) + `topojson-client` | Real cartography, bundled data, no external map-tile API/key — restyled as a tactical threat board, not an ambient hero |
+| **Map** | `world-atlas` (land-110m TopoJSON) + `topojson-client` | Real cartography, bundled data, no external map-tile API/key, restyled as a tactical threat board, not an ambient hero |
 | **Backend Framework** | Express (Node.js, ESM) | USGS proxy + cache, world/ledger persistence + processing, static hosting |
 | **Quake Data** | USGS Earthquake Hazards Program | Free, keyless real-time GeoJSON feeds |
 | **Persistence** | Flat JSON file (`server/data/world.json`) | Single shared world, no database, no auth |
 | **Testing** | Vitest + Supertest | Pure-logic unit tests (client + server) and HTTP-level route tests (server) |
 | **Dev Orchestration** | `concurrently` + `cross-env` | Runs client + server dev servers with one `npm run dev` |
 
-**Tone.js is gone.** The entire audio-synthesis layer (`AudioEngine`, `seismicTheory`, P/S wave audio-arrival timing, the recorder, the Media Session lock-screen hook, and Screen Wake Lock) has been removed along with it — none of it applies to a non-audio ops dashboard.
+**Tone.js is gone.** The entire audio-synthesis layer (`AudioEngine`, `seismicTheory`, P/S wave audio-arrival timing, the recorder, the Media Session lock-screen hook, and Screen Wake Lock) has been removed along with it; none of it applies to a non-audio ops dashboard.
 
 ---
 
@@ -158,7 +158,7 @@ fault-line/
         ├── types.ts
         ├── seismology/
         │   ├── energyMapping.ts      # magnitude→energy scaling, depth bands (kept from the audio build)
-        │   ├── unrestIndex.ts        # decayed-energy accumulator — repurposed as "Global Activity" HUD readout
+        │   ├── unrestIndex.ts        # decayed-energy accumulator, repurposed as "Global Activity" HUD readout
         │   ├── omoriAftershocks.ts   # repurposed: Omori-Utsu + Gutenberg-Richter aftershock probability forecast
         │   ├── tectonicRegion.ts     # coarse bounding-box tectonic-province classifier
         │   ├── regionDominance.ts    # per-region decayed energy + "dominant region" HUD readout
@@ -174,7 +174,7 @@ fault-line/
         ├── lib/
         │   └── formatTime.ts         # clock + "time ago" formatting
         └── components/
-            ├── ThreatBoard.tsx       # tactical world map: land silhouette, sites, recent quakes, radar sweep — draggable to pan, scroll/pinch to zoom, fits any panel size without distorting geography
+            ├── ThreatBoard.tsx       # tactical world map: land silhouette, sites, recent quakes, radar sweep; draggable to pan, scroll/pinch to zoom, fits any panel size without distorting geography
             ├── SiteGrid.tsx          # one tile per site: resilience/health/overdue gauges + allocate control
             ├── IntelLog.tsx          # scrolling global event log with rarity + glyph
             ├── AftershockConsole.tsx # lights up only while a decision window is open
@@ -190,8 +190,8 @@ fault-line/
 | GET | `/api/health` | Liveness check |
 | GET | `/api/quakes` | Normalized recent quakes from the cached USGS feed |
 | GET | `/api/world` | Runs a processing pass (budget regen, window finalization, quake ingestion) and returns the full world view: sites + budget + ledger + active aftershock window |
-| POST | `/api/world/allocate` | `{ siteId, amount }` — spend resilience budget to raise a site's resilience |
-| POST | `/api/world/commit-aftershock-response` | `{ siteId, amount }` — commit budget to a site during an open aftershock decision window |
+| POST | `/api/world/allocate` | `{ siteId, amount }`: spend resilience budget to raise a site's resilience |
+| POST | `/api/world/commit-aftershock-response` | `{ siteId, amount }`: commit budget to a site during an open aftershock decision window |
 
 ---
 
@@ -201,7 +201,7 @@ fault-line/
 |----------|---------|--------------|
 | `PORT` | `5274` | Server port (overridden to `3002` by `npm run dev` for the API process) |
 | `USGS_FEED` | `all_day` | Which USGS summary feed to poll |
-| `WORLD_DATA_FILE` | `server/data/world.json` | Overrides the world/ledger store path — used by the test suite to isolate test data |
+| `WORLD_DATA_FILE` | `server/data/world.json` | Overrides the world/ledger store path, used by the test suite to isolate test data |
 
 ---
 
@@ -247,15 +247,15 @@ Every pure/deterministic function in this codebase has a real Vitest unit test: 
 ## Honest Limitations
 
 - **This is not an early-warning, hazard-forecasting, or safety tool of any kind.** No claim is made or implied about predicting real earthquakes, real aftershocks, or informing real-world safety decisions.
-- **The recurrence intervals and "last major rupture" years are rough, rounded public estimates, not authoritative hazard data.** They were assembled from public seismology summaries for a hobby project. Several carry real, acknowledged uncertainty — Wellington/Hikurangi's in particular is little more than an order-of-magnitude placeholder, since no confirmed great full-margin rupture exists in the ~200-year written record for that segment. See the notes on each site in `server/src/lib/sites.js`.
+- **The recurrence intervals and "last major rupture" years are rough, rounded public estimates, not authoritative hazard data.** They were assembled from public seismology summaries for a hobby project. Several carry real, acknowledged uncertainty; Wellington/Hikurangi's in particular is little more than an order-of-magnitude placeholder, since no confirmed great full-margin rupture exists in the ~200-year written record for that segment. See the notes on each site in `server/src/lib/sites.js`.
 - **The attenuation/damage model is a deliberately simplified approximation, not a real ShakeMap or region-calibrated GMICE.** It's loosely shaped like published intensity-attenuation relations (magnitude up, log-distance down), with hand-picked coefficients tuned only to feel reasonable, not fit to any real region's ground-motion data.
-- **The Omori-Utsu/Gutenberg-Richter aftershock forecast is illustrative, not a real forecast.** The productivity constant and b-value are reasonable textbook defaults, not fit to any specific real aftershock sequence — real forecasting tools (e.g. USGS's own aftershock forecasts) are calibrated against the actual sequence as it unfolds.
+- **The Omori-Utsu/Gutenberg-Richter aftershock forecast is illustrative, not a real forecast.** The productivity constant and b-value are reasonable textbook defaults, not fit to any specific real aftershock sequence; real forecasting tools (e.g. USGS's own aftershock forecasts) are calibrated against the actual sequence as it unfolds.
 - **The tectonic-region classifier is coarse.** It buckets coordinates with a handful of rectangular bounding boxes, not actual plate-boundary geometry.
-- **This is a single shared world with no authentication.** Anyone who can reach the server can spend the shared resilience budget or commit an aftershock response — there are no accounts, no per-user state, and no access control. That's a deliberate simplicity choice for a hobby project, not a production posture.
-- **World processing is lazy, not continuous.** The server ingests new quakes and finalizes aftershock windows only when `GET /api/world` is called, not via a background worker — if nobody has the app open for a while, ingestion simply catches up (correctly, since everything is computed from real timestamps) the next time someone does.
+- **This is a single shared world with no authentication.** Anyone who can reach the server can spend the shared resilience budget or commit an aftershock response; there are no accounts, no per-user state, and no access control. That's a deliberate simplicity choice for a hobby project, not a production posture.
+- **World processing is lazy, not continuous.** The server ingests new quakes and finalizes aftershock windows only when `GET /api/world` is called, not via a background worker; if nobody has the app open for a while, ingestion simply catches up (correctly, since everything is computed from real timestamps) the next time someone does.
 - **The rarity score is a rough Gutenberg-Richter-style statistical estimate, not a calibrated catalog frequency.** It uses a fixed global b-value and rough global depth-band proportions, not a live-fit model of the actual current catalog.
 - **The ledger is returned in full over the API, unpaginated.** Fine at hobby-project scale; would need pagination for a long-lived deployment.
-- **The USGS feed can lag or be temporarily delayed or unavailable.** The world engine simply skips ingestion for that pass and catches up next time; it never crashes the endpoint. Reads/writes against the shared `world.json` file are also serialized through a single in-process lock (`worldStore.transact`) and written atomically (temp file + rename), so two overlapping requests — two tabs open, a dev-mode double-poll — can no longer race and corrupt the file. An earlier version of this app didn't serialize that read-modify-write cycle and could crash the whole server under concurrent load with `Unexpected end of JSON input`; that's what this guards against now.
+- **The USGS feed can lag or be temporarily delayed or unavailable.** The world engine simply skips ingestion for that pass and catches up next time; it never crashes the endpoint. Reads/writes against the shared `world.json` file are also serialized through a single in-process lock (`worldStore.transact`) and written atomically (temp file + rename), so two overlapping requests (two tabs open, a dev-mode double-poll) can no longer race and corrupt the file. An earlier version of this app didn't serialize that read-modify-write cycle and could crash the whole server under concurrent load with `Unexpected end of JSON input`; that's what this guards against now.
 
 ---
 

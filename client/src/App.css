@@ -1,4 +1,4 @@
-/* Fault Line — a seismic operations command center: a NORAD/mission-control
+/* Fault Line: a seismic operations command center, a NORAD/mission-control
    HUD with multiple simultaneously-visible panels, not one soft ambient
    hero background behind a hidden drawer. Cool cyan/electric-blue lines on
    near-black, sharp panel edges/bezels, monospace type, scanlines and a
@@ -133,7 +133,7 @@
      viewport height). Board gets the larger share now that it's an
      interactive, worth-the-room map; Site Status keeps a smaller floor
      since its cards no longer need to stretch to fill the row (see
-     .site-grid-tiles below) — any leftover row height is just quiet empty
+     .site-grid-tiles below); any leftover row height is just quiet empty
      space under the card grid, not space forced into each card. */
   grid-template-rows: minmax(300px, 1.3fr) auto minmax(200px, 1fr);
   grid-template-areas:
@@ -342,13 +342,15 @@
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
-  /* The actual fix for the dead-space bug: grid rows and grid items both
-     default to "stretch", which inflates every row (and therefore every
-     card) to fill whatever leftover height the flex parent handed down.
-     Anchoring both to the start keeps each card's height driven purely by
-     its own content. */
+  /* The fix for the dead-space bug: `align-content` on its own defaults to
+     "stretch", which inflates every row track to fill whatever leftover
+     height the flex parent handed down. Anchoring it to the start keeps the
+     grid's total height driven by its rows' real content instead. Within
+     each row, `align-items: stretch` (the default) is kept so every card in
+     that row still matches the tallest card next to it, rather than each
+     card sizing independently and producing a ragged, uneven-looking row. */
   align-content: start;
-  align-items: start;
+  align-items: stretch;
   gap: 12px;
   padding: 12px;
 }
@@ -461,6 +463,11 @@
   gap: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(63, 230, 255, 0.1);
+  /* Now that .site-tile stretches to match the tallest card in its row, push
+     the footer to the bottom of that stretched height so the Allocate
+     controls line up across a row instead of leftover space collecting in
+     an arbitrary spot between the gauges and the footer. */
+  margin-top: auto;
 }
 
 .site-tile-meta {
@@ -482,6 +489,44 @@
 
 .site-tile-allocate button {
   flex: 1;
+}
+
+.site-tile-hint {
+  margin: 0;
+  font-size: 9px;
+  color: var(--text-dim);
+  opacity: 0.75;
+}
+
+.site-tile-confirm {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--cyan);
+  animation: allocate-confirm-fade 2.2s ease forwards;
+}
+
+@keyframes allocate-confirm-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-tile-confirm {
+    animation: none;
+  }
 }
 
 /* ---------- Gauges ---------- */
@@ -566,10 +611,61 @@
 }
 
 .aftershock-standby {
-  margin: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+}
+
+.aftershock-standby-indicator {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan-dim);
+  animation: standby-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes standby-pulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aftershock-standby-indicator {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
+.aftershock-standby-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.aftershock-standby-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+
+.aftershock-standby-detail {
+  margin: 0;
+  max-width: 62ch;
   font-size: 11px;
   color: var(--text-dim);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .aftershock-body {

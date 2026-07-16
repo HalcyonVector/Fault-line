@@ -1,7 +1,7 @@
 // Repurposed from the old audio build's "Omori-law aftershock echo train"
 // generator (which scheduled quiet audio pulses) into a real probability
 // forecast for the aftershock decision window. The core Omori-Utsu decay law
-// (`omoriRate`) is unchanged — it's the same real law, just consumed
+// (`omoriRate`) is unchanged: it's the same real law, just consumed
 // differently: instead of scheduling sounds, its integral over a forecast
 // horizon becomes an expected aftershock count, which is combined with the
 // Gutenberg-Richter magnitude-frequency relation (a simplified
@@ -10,19 +10,19 @@
 //
 // This is illustrative, not a real forecast: the productivity constant (K)
 // and b-value below are reasonable textbook defaults, not fit to any
-// specific real aftershock sequence — see the README's Honest Limitations.
+// specific real aftershock sequence; see the README's Honest Limitations.
 
 // Omori-Utsu aftershock decay law: rate(t) = K / (t + c)^p. p ~= 1.0 is the
 // classic Omori value; c is a small time offset that keeps the rate finite
 // right at the mainshock instead of diverging at t=0.
 const P = 1.0;
-const C_HOURS = 0.05; // ~3 minutes — real early-aftershock catalogs are often incomplete before this
+const C_HOURS = 0.05; // ~3 minutes; real early-aftershock catalogs are often incomplete before this
 
 const MIN_MAGNITUDE_FOR_WINDOW = 6;
 const MIN_SIG_FOR_WINDOW = 600;
 
 // The productivity (K) estimate is calibrated as "aftershocks at/above this
-// magnitude, per hour, at t=c" for a magnitude-6 mainshock — a reasonable
+// magnitude, per hour, at t=c" for a magnitude-6 mainshock, a reasonable
 // illustrative order of magnitude, not fit to a specific sequence.
 const REFERENCE_MAGNITUDE = 2.5;
 const BASE_K_AT_M6 = 5;
@@ -58,7 +58,7 @@ export function aftershockProductivityK(mainshockMagnitude: number): number {
 
 /**
  * Expected number of aftershocks (at/above the reference magnitude)
- * occurring between `tStartHours` and `tEndHours` after the mainshock — the
+ * occurring between `tStartHours` and `tEndHours` after the mainshock: the
  * closed-form integral of the Omori-Utsu rate over that window.
  */
 export function expectedAftershockCount(

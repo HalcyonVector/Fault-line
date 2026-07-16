@@ -125,7 +125,7 @@ function ingestQuake(world, quake, nowMs) {
 /**
  * Runs one processing pass: regen budget, finalize any expired aftershock
  * window, ingest any not-yet-seen live quakes against the portfolio. Mutates
- * and persists `world`. Never throws on a USGS fetch failure — it just skips
+ * and persists `world`. Never throws on a USGS fetch failure; it just skips
  * ingestion for this pass (the budget regen and window finalization above
  * still happen, and processing catches up on the next call).
  */

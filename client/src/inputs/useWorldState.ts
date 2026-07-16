@@ -3,13 +3,13 @@ import type { WorldView } from '../types';
 
 const POLL_MS = 5000;
 // Poll faster while a decision window is open so a commit made from another
-// tab/device shows up promptly — the countdown and probability themselves
+// tab/device shows up promptly. The countdown and probability themselves
 // are computed locally from real wall-clock time, not from poll cadence.
 const ACTIVE_WINDOW_POLL_MS = 2000;
 
 /**
  * Polls the server's shared world/ledger state (GET /api/world). This is a
- * single shared, persistent world, not per-browser state — reopening the
+ * single shared, persistent world, not per-browser state: reopening the
  * app (or opening it on another device) shows the same ongoing history.
  */
 export function useWorldState() {

@@ -1,6 +1,6 @@
 // The core damage model: real haversine distance, a simplified MMI-like
 // intensity-attenuation estimate, and resilience-scaled damage. Every
-// function here is pure and deterministic — see server/test/damageModel.test.js.
+// function here is pure and deterministic; see server/test/damageModel.test.js.
 //
 // The attenuation formula is deliberately simple and clearly NOT a real
 // ShakeMap / region-calibrated Ground-Motion-to-Intensity-Conversion-Equation
@@ -36,7 +36,7 @@ function clamp(v, min, max) {
  * Simplified MMI-like (roughly 0-12) local shaking-intensity estimate from
  * magnitude, focal depth, and epicentral distance. Uses hypocentral (slant)
  * distance so depth genuinely matters, not just as a separate penalty term.
- * Not a real GMICE — see the module doc comment above.
+ * Not a real GMICE. See the module doc comment above.
  */
 export function estimateShakingIntensity({ magnitude, depthKm, distanceKm }) {
   const depth = Math.max(1, depthKm ?? 10);
@@ -49,7 +49,7 @@ export function estimateShakingIntensity({ magnitude, depthKm, distanceKm }) {
 /**
  * Damage dealt to a site = its local shaking intensity, scaled down by the
  * site's current resilience (0-100). Resilience never fully eliminates
- * damage (real risk always remains, even at max investment) — it can only
+ * damage (real risk always remains, even at max investment); it can only
  * absorb up to 90% of the shaking intensity.
  */
 export function computeDamage(intensity, resilience) {

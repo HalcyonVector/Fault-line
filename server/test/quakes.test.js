@@ -32,7 +32,7 @@ function mockUsgsResponse() {
         },
         {
           id: 'us1000efgh',
-          // Missing coordinates entirely — should be filtered out, not crash the route.
+          // Missing coordinates entirely, should be filtered out, not crash the route.
           geometry: null,
           properties: { mag: 2.1, place: 'somewhere', time: 1750000200000 },
         },

@@ -13,7 +13,7 @@ interface QuakeFeedApiResponse {
 /**
  * Polls the server's USGS proxy (GET /api/quakes) on an interval. USGS
  * itself only updates every ~60s and the server caches for ~35s, so this
- * poll cadence is deliberately not aggressive — see the server's
+ * poll cadence is deliberately not aggressive; see the server's
  * routes/quakes.js for the caching rationale. Returns the raw list each
  * poll; the caller is responsible for diffing against previously-seen ids
  * to find genuinely *new* quakes to trigger.

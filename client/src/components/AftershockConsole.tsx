@@ -50,11 +50,18 @@ export function AftershockConsole({ window: win, sites, budget, onCommit, commit
       </header>
 
       {!win && (
-        <p className="aftershock-standby">
-          No decision window is currently open. One opens automatically for ~60-90 real seconds whenever a live
-          mainshock crosses M6 (or high USGS significance) — either near a site or globally notable — giving you a
-          real-time chance to commit resilience budget to an emergency response before it locks into the ledger.
-        </p>
+        <div className="aftershock-standby">
+          <span className="aftershock-standby-indicator" aria-hidden="true" />
+          <div className="aftershock-standby-copy">
+            <p className="aftershock-standby-title">Monitoring the live feed for a significant mainshock</p>
+            <p className="aftershock-standby-detail">
+              A decision window opens automatically for ~60-90 real seconds whenever a live mainshock crosses M6 (or
+              high USGS significance), whether it lands near a monitored site or is simply globally notable. That
+              gives you a real-time chance to commit resilience budget to an emergency response before it locks into
+              the permanent ledger.
+            </p>
+          </div>
+        </div>
       )}
 
       {win && (
@@ -98,7 +105,7 @@ export function AftershockConsole({ window: win, sites, budget, onCommit, commit
                   aria-label="Resilience budget to commit"
                 />
                 <button type="button" disabled={!canCommit || committing} onClick={() => onCommit(siteId, amount)}>
-                  {committing ? 'Committing…' : 'Commit Emergency Response'}
+                  {committing ? 'Committing...' : 'Commit Emergency Response'}
                 </button>
               </div>
             </>

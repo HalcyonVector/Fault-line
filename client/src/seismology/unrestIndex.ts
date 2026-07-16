@@ -8,7 +8,7 @@ export interface QuakeEvent {
 // Chosen so a single M5.5-ish quake (or an equivalent cluster of smaller
 // ones) noticeably lifts the index, while a genuinely major swarm pushes it
 // toward the 1.0 ceiling. This is a stylized "restlessness" scale, not a
-// seismological hazard metric — see the README's Honest Limitations.
+// seismological hazard metric; see the README's Honest Limitations.
 const REFERENCE_ENERGY = magnitudeToEnergy(5.5) * 1.1;
 
 function clamp01(v: number): number {

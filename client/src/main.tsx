@@ -15,7 +15,7 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
-// Only register in production builds — in dev this would cache Vite's
+// Only register in production builds: in dev this would cache Vite's
 // module graph and fight with HMR.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {

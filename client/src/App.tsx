@@ -26,6 +26,7 @@ export default function App() {
   const [allocating, setAllocating] = useState<string | null>(null);
   const [committing, setCommitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [lastAllocation, setLastAllocation] = useState<{ siteId: string; amount: number } | null>(null);
 
   // Ticks once a second so real-time-decayed signals (global activity level,
   // aftershock countdown/probability) stay live even between polls.
@@ -62,6 +63,7 @@ export default function App() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message ?? 'Allocation failed');
         refresh();
+        setLastAllocation({ siteId, amount });
       } catch (err) {
         setActionError(err instanceof Error ? err.message : 'Allocation failed');
       } finally {
@@ -70,6 +72,15 @@ export default function App() {
     },
     [refresh],
   );
+
+  // Clears the brief "+N resilience" confirmation a couple seconds after a
+  // successful allocation, so it reads as a momentary flash of feedback
+  // rather than a fact that's permanently glued to the card.
+  useEffect(() => {
+    if (!lastAllocation) return;
+    const id = setTimeout(() => setLastAllocation(null), 2200);
+    return () => clearTimeout(id);
+  }, [lastAllocation]);
 
   const handleCommit = useCallback(
     async (siteId: string, amount: number) => {
@@ -107,11 +118,11 @@ export default function App() {
           </div>
           <div className="ops-hud-field">
             <span className="ops-hud-label">Dominant Region</span>
-            <span className="ops-hud-value">{dominant ? REGION_LABEL[dominant] : '—'}</span>
+            <span className="ops-hud-value">{dominant ? REGION_LABEL[dominant] : 'N/A'}</span>
           </div>
           <div className="ops-hud-field">
             <span className="ops-hud-label">Resilience Budget</span>
-            <span className="ops-hud-value">{world ? world.budget.value.toFixed(1) : '—'}</span>
+            <span className="ops-hud-value">{world ? world.budget.value.toFixed(1) : 'N/A'}</span>
           </div>
         </div>
       </header>
@@ -143,6 +154,7 @@ export default function App() {
               budget={world.budget.value}
               onAllocate={handleAllocate}
               allocating={allocating}
+              lastAllocation={lastAllocation}
               selectedSiteId={selectedSiteId}
               onSelectSite={setSelectedSiteId}
             />

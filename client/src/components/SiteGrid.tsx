@@ -6,6 +6,7 @@ interface SiteGridProps {
   budget: number;
   onAllocate: (siteId: string, amount: number) => void;
   allocating: string | null;
+  lastAllocation?: { siteId: string; amount: number } | null;
   selectedSiteId?: string | null;
   onSelectSite?: (siteId: string) => void;
 }
@@ -31,7 +32,15 @@ const STATUS_LABEL: Record<'cyan' | 'warn' | 'danger', string> = {
   danger: 'Critical',
 };
 
-export function SiteGrid({ sites, budget, onAllocate, allocating, selectedSiteId, onSelectSite }: SiteGridProps) {
+export function SiteGrid({
+  sites,
+  budget,
+  onAllocate,
+  allocating,
+  lastAllocation,
+  selectedSiteId,
+  onSelectSite,
+}: SiteGridProps) {
   const [amounts, setAmounts] = useState<Record<string, number>>({});
 
   const amountFor = (siteId: string) => amounts[siteId] ?? 5;
@@ -78,6 +87,8 @@ export function SiteGrid({ sites, budget, onAllocate, allocating, selectedSiteId
                   {(site.overduePressure.raw * 100).toFixed(0)}% of interval elapsed
                 </p>
 
+                <p className="site-tile-hint">Spend budget below to raise this site&rsquo;s resilience.</p>
+
                 <div className="site-tile-allocate" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="number"
@@ -92,9 +103,15 @@ export function SiteGrid({ sites, budget, onAllocate, allocating, selectedSiteId
                     disabled={!canAfford || allocating === site.id}
                     onClick={() => onAllocate(site.id, amount)}
                   >
-                    {allocating === site.id ? 'Allocating…' : 'Allocate'}
+                    {allocating === site.id ? 'Allocating...' : 'Allocate'}
                   </button>
                 </div>
+
+                {lastAllocation?.siteId === site.id && (
+                  <p className="site-tile-confirm" role="status">
+                    +{lastAllocation.amount} resilience committed.
+                  </p>
+                )}
               </div>
             </article>
           );

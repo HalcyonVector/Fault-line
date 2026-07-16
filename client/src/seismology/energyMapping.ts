@@ -9,7 +9,7 @@ function lerp(a: number, b: number, t: number): number {
 /**
  * Standard seismic-moment-adjacent energy scaling: energy grows roughly an
  * order of magnitude for every ~0.67 units of magnitude, so a swarm of small
- * quakes barely moves the needle while a single large quake dominates —
+ * quakes barely moves the needle while a single large quake dominates,
  * unlike a naive linear-in-magnitude scale, which would flatten that
  * difference out. Shared by the unrest accumulator and per-region tracking.
  */
@@ -33,10 +33,10 @@ const MAX_TRIGGER_MAGNITUDE = 9;
  * Magnitude -> per-event trigger amplitude, in 0..1. Derived from the same
  * energy formula (so it's still monotonic in the physically-motivated
  * sense) but compressed logarithmically before normalizing, the way
- * perceived loudness compresses physical amplitude — otherwise a M4.5
+ * perceived loudness compresses physical amplitude: otherwise a M4.5
  * "default threshold" quake would sit at a small fraction of a percent of
  * full scale next to a M9. Clamped so nothing above M9 clips past 1, and
- * floored so even a minimum-threshold M2.5 stays audible.
+ * floored so even a minimum-threshold M2.5 stays above zero.
  */
 export function magnitudeToAmplitude(
   magnitude: number,

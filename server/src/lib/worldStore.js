@@ -61,7 +61,7 @@ export async function readWorld() {
 
 export async function writeWorld(world) {
   await mkdir(DATA_DIR, { recursive: true });
-  // Write to a sibling temp file and rename over the real path — rename is
+  // Write to a sibling temp file and rename over the real path: rename is
   // atomic on the same volume (POSIX and NTFS), so a concurrent reader (or a
   // process killed mid-write) never observes a truncated/partial file the
   // way a direct writeFile(DATA_FILE, ...) could produce.
@@ -77,7 +77,7 @@ let lockTail = Promise.resolve();
  * reads it, lets the mutator mutate it in place and return a result, persists
  * the (possibly mutated) world, then resolves with that result. Calls queue
  * behind one another via `lockTail` so two overlapping requests can never
- * interleave their read/write against the same file — without this, two
+ * interleave their read/write against the same file. Without this, two
  * concurrent `await`s could each read the same stale state and race to
  * write, occasionally catching the file mid-write (this is what previously
  * produced "Unexpected end of JSON input" crashes under concurrent polling).

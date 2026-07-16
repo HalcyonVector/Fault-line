@@ -30,7 +30,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="error-fallback">
           <p className="error-fallback-title">Something went wrong.</p>
           <p className="error-fallback-body">
-            The dashboard hit an unexpected error. Refreshing usually fixes it — the shared world state on the
+            The dashboard hit an unexpected error. Refreshing usually fixes it; the shared world state on the
             server is unaffected.
           </p>
           <button onClick={() => window.location.reload()}>Refresh</button>

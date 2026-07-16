@@ -11,7 +11,7 @@ function inBox(lon: number, lat: number, box: BBox): boolean {
   return lon >= box.lonMin && lon <= box.lonMax && lat >= box.latMin && lat <= box.latMax;
 }
 
-// Coarse bounding boxes only — this is a stylized heuristic for interesting
+// Coarse bounding boxes only: this is a stylized heuristic for interesting
 // timbral variety, not authoritative plate-boundary data (see the README's
 // Honest Limitations). Real plate boundaries are irregular curves, not
 // rectangles, and several real provinces (e.g. the East African Rift, the
@@ -36,7 +36,7 @@ const ALPIDE_BELT_BOXES: BBox[] = [
 /**
  * Buckets a quake's epicenter into one of a handful of coarse tectonic
  * provinces via simple bounding-box heuristics. Used to steer the drone's
- * harmonic color, not for anything safety-critical — see the README.
+ * harmonic color, not for anything safety-critical. See the README.
  */
 export function classifyTectonicRegion(lon: number, lat: number): TectonicRegion {
   if (MID_ATLANTIC_RIDGE_BOXES.some((b) => inBox(lon, lat, b))) return 'mid-atlantic-ridge';

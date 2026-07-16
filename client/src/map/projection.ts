@@ -10,7 +10,7 @@ export function projectEquirectangular(lon: number, lat: number, width: number, 
   return { x, y };
 }
 
-/** Inverse of projectEquirectangular — pixel space back to lon/lat. */
+/** Inverse of projectEquirectangular: pixel space back to lon/lat. */
 export function unprojectEquirectangular(x: number, y: number, width: number, height: number): { lon: number; lat: number } {
   const lon = (x / width) * 360 - 180;
   const lat = 90 - (y / height) * 180;

@@ -692,7 +692,6 @@
 
 .aftershock-standby-detail {
   margin: 0;
-  max-width: 80ch;
   font-size: 11px;
   color: var(--text-dim);
   line-height: 1.6;

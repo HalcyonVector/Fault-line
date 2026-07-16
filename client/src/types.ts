@@ -14,39 +14,6 @@ export interface Quake {
   depthKm: number;
 }
 
-export type TectonicRegion = 'ring-of-fire' | 'alpide-belt' | 'mid-atlantic-ridge' | 'intraplate-other';
-
-/** A pulse in a synthesized Omori-law aftershock echo train. */
-export interface AftershockPulse {
-  delayMs: number;
-  amplitude: number;
-}
-
-/** The continuous, fully-resolved drone/background synthesis parameters — the seismic analog of Petrichor's AmbientParams. */
-export interface SeismicParams {
-  droneDensity: number; // 0..1, overall thickness of the drone layer
-  layerCount: number; // 1..5, simultaneous drone oscillator layers
-  dissonance: number; // 0..1, drives interval palette selection (open fifths -> minor second/tritone clusters)
-  filterCutoffHz: number;
-  filterResonance: number; // Q
-  tremoloRate: number; // Hz, beating/tremolo speed
-  overtoneColor: number; // 0..1, metallic FM-ish overtone amount (tectonic-region driven)
-  warmth: number; // 0..1, lower = colder/sparser (tectonic-region driven)
-  vignette: number; // 0..1, visual darkening/reddening — mirrors unrest
-  dominantRegion: TectonicRegion | null;
-}
-
-/** Per-quake trigger synthesis parameters, resolved from magnitude/depth/location. */
-export interface TriggerParams {
-  amplitude: number; // 0..1
-  cutoffHz: number; // depth-driven timbral brightness
-  attack: number; // seconds
-  decay: number; // seconds
-  spDelayMs: number; // P-to-S onset gap
-  aftershocks: AftershockPulse[];
-  region: TectonicRegion;
-}
-
 export interface QuakeFeedResponse {
   quakes: Quake[];
   feed: string;
@@ -54,12 +21,86 @@ export interface QuakeFeedResponse {
   cached: boolean;
 }
 
-export interface EngineConfig {
-  magnitudeThreshold: number; // 2.5..7.5
+export type TectonicRegion = 'ring-of-fire' | 'alpide-belt' | 'mid-atlantic-ridge' | 'intraplate-other';
+
+/** A site's overdue-pressure gauge: (years since last major rupture) / recurrence interval. */
+export interface OverduePressure {
+  raw: number;
+  clamped: number;
 }
 
-export interface Preset {
+/** One of the six curated real portfolio sites, merged with its live world state. */
+export interface Site {
+  id: string;
   name: string;
-  params: EngineConfig;
-  savedAt: string;
+  country: string;
+  lat: number;
+  lon: number;
+  faultSystem: string;
+  recurrenceYears: number;
+  lastMajorRuptureYear: number;
+  note: string;
+  resilience: number; // 0..100
+  health: number; // 0..100
+  overduePressure: OverduePressure;
+}
+
+export interface ResilienceBudget {
+  value: number;
+  cap: number;
+  regenPerHour: number;
+  lastRegenAt: string;
+}
+
+export interface QuakeImpactLedgerEntry {
+  id: string;
+  type: 'quake-impact';
+  quakeId: string;
+  siteId: string;
+  magnitude: number;
+  depthKm: number;
+  distanceKm: number;
+  intensity: number;
+  damage: number;
+  resolvedAt: string;
+}
+
+export interface AftershockWindowLedgerEntry {
+  id: string;
+  type: 'aftershock-window';
+  mainshockQuakeId: string;
+  mainshockMagnitude: number;
+  mainshockSig: number;
+  nearestSiteId: string | null;
+  nearestSiteDistanceKm: number | null;
+  opensAt: number;
+  expiresAt: number;
+  committed: { siteId: string; amount: number; committedAt: number } | null;
+  resolvedAt: string;
+}
+
+export type LedgerEntry = QuakeImpactLedgerEntry | AftershockWindowLedgerEntry;
+
+export interface ActiveAftershockWindow {
+  id: string;
+  mainshockQuakeId: string;
+  mainshockMagnitude: number;
+  mainshockSig: number;
+  mainshockLat: number;
+  mainshockLon: number;
+  mainshockDepthKm: number;
+  nearestSiteId: string | null;
+  nearestSiteDistanceKm: number | null;
+  opensAt: number;
+  expiresAt: number;
+  committed: { siteId: string; amount: number; committedAt: number } | null;
+}
+
+/** The full shape returned by GET /api/world. */
+export interface WorldView {
+  sites: Site[];
+  budget: ResilienceBudget;
+  ledger: LedgerEntry[];
+  activeAftershockWindow: ActiveAftershockWindow | null;
+  serverTimeMs: number;
 }

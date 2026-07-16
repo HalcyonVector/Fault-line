@@ -1,87 +1,131 @@
-import type { AftershockPulse } from '../types';
+// Repurposed from the old audio build's "Omori-law aftershock echo train"
+// generator (which scheduled quiet audio pulses) into a real probability
+// forecast for the aftershock decision window. The core Omori-Utsu decay law
+// (`omoriRate`) is unchanged — it's the same real law, just consumed
+// differently: instead of scheduling sounds, its integral over a forecast
+// horizon becomes an expected aftershock count, which is combined with the
+// Gutenberg-Richter magnitude-frequency relation (a simplified
+// Reasenberg-Jones-style combination) to estimate the probability that at
+// least one *damaging* aftershock lands in that horizon.
+//
+// This is illustrative, not a real forecast: the productivity constant (K)
+// and b-value below are reasonable textbook defaults, not fit to any
+// specific real aftershock sequence — see the README's Honest Limitations.
 
 // Omori-Utsu aftershock decay law: rate(t) = K / (t + c)^p. p ~= 1.0 is the
 // classic Omori value; c is a small time offset that keeps the rate finite
-// right after the mainshock instead of diverging at t=0.
+// right at the mainshock instead of diverging at t=0.
 const P = 1.0;
-const C_HOURS = 0.05;
+const C_HOURS = 0.05; // ~3 minutes — real early-aftershock catalogs are often incomplete before this
 
-const MIN_MAGNITUDE_FOR_AFTERSHOCKS = 6;
-const MIN_SIG_FOR_AFTERSHOCKS = 600;
+const MIN_MAGNITUDE_FOR_WINDOW = 6;
+const MIN_SIG_FOR_WINDOW = 600;
 
-const REAL_WINDOW_HOURS = 6; // real aftershock decay hours we model
-const AUDIO_WINDOW_MS = 30_000; // compressed onto ~30s of audio
-const MAX_PULSE_AMPLITUDE = 0.3; // these are quiet "aftermath tension" echoes, never as loud as the main onset
+// The productivity (K) estimate is calibrated as "aftershocks at/above this
+// magnitude, per hour, at t=c" for a magnitude-6 mainshock — a reasonable
+// illustrative order of magnitude, not fit to a specific sequence.
+const REFERENCE_MAGNITUDE = 2.5;
+const BASE_K_AT_M6 = 5;
+
+// Gutenberg-Richter b-value: log10(N(>=M)) = a - b*M. 1.0 is the typical
+// global average; regional b-values vary (0.7-1.3 is a common real range).
+const DEFAULT_B_VALUE = 1.0;
+
+// What counts as a "damaging" aftershock for this forecast.
+const DEFAULT_DANGEROUS_MAGNITUDE = 5.0;
 
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
 
-/** Instantaneous aftershock rate at `tHours` after the mainshock, per the Omori-Utsu law. */
+/** True when a mainshock is significant enough to open an aftershock decision window (mag>=6, or high USGS `sig`). */
+export function isSignificantMainshock(magnitude: number, sig = 0): boolean {
+  return magnitude >= MIN_MAGNITUDE_FOR_WINDOW || sig >= MIN_SIG_FOR_WINDOW;
+}
+
+/** Instantaneous aftershock rate (events/hour, at/above the reference magnitude) at `tHours` after the mainshock, per the Omori-Utsu law. */
 export function omoriRate(tHours: number, K: number, c = C_HOURS, p = P): number {
-  return K / Math.pow(tHours + c, p);
+  return K / Math.pow(Math.max(0, tHours) + c, p);
 }
 
 /**
- * Aftershock "productivity" scaling: bigger mainshocks produce measurably
- * more aftershocks. Normalized to 1 at the M6 significance floor.
+ * Aftershock-zone productivity (K): bigger mainshocks produce measurably
+ * more aftershocks. Normalized so a magnitude-6 mainshock gives `BASE_K_AT_M6`.
  */
-export function aftershockProductivity(magnitude: number): number {
-  return Math.pow(10, 0.4 * (magnitude - MIN_MAGNITUDE_FOR_AFTERSHOCKS));
-}
-
-export interface AftershockTrainOptions {
-  numPulses?: number;
-  realWindowHours?: number;
-  audioWindowMs?: number;
+export function aftershockProductivityK(mainshockMagnitude: number): number {
+  return BASE_K_AT_M6 * Math.pow(10, 0.4 * (mainshockMagnitude - MIN_MAGNITUDE_FOR_WINDOW));
 }
 
 /**
- * Generates a decaying train of quiet echo pulses for a significant quake
- * (mag >= 6, or high `sig`), following the real Omori-Utsu decay shape but
- * compressed onto an audio timescale: several real hours of aftershock
- * decay become roughly 20-40 seconds of echoes after the main P/S onset.
- * Returns an empty array for quakes that don't meet the significance bar —
- * most quakes are just a plain P/S onset with no aftermath tail.
+ * Expected number of aftershocks (at/above the reference magnitude)
+ * occurring between `tStartHours` and `tEndHours` after the mainshock — the
+ * closed-form integral of the Omori-Utsu rate over that window.
  */
-export function generateAftershockTrain(
-  magnitude: number,
-  sig = 0,
-  options: AftershockTrainOptions = {},
-): AftershockPulse[] {
-  const significant = magnitude >= MIN_MAGNITUDE_FOR_AFTERSHOCKS || sig >= MIN_SIG_FOR_AFTERSHOCKS;
-  if (!significant) return [];
-
-  const realWindowHours = options.realWindowHours ?? REAL_WINDOW_HOURS;
-  const audioWindowMs = options.audioWindowMs ?? AUDIO_WINDOW_MS;
-  // Bigger mainshocks get both a denser train (more pulses) and a louder
-  // ceiling on those pulses — productivity (K) alone would only reshape
-  // *when* pulses land, not how many or how loud, since K cancels out of
-  // the rate ratio used to normalize each pulse's amplitude.
-  const numPulses =
-    options.numPulses ?? clamp(Math.round(8 + (magnitude - MIN_MAGNITUDE_FOR_AFTERSHOCKS) * 4), 6, 24);
-  const maxAmplitude = clamp(
-    0.12 + (magnitude - MIN_MAGNITUDE_FOR_AFTERSHOCKS) * 0.025,
-    0.12,
-    MAX_PULSE_AMPLITUDE,
-  );
-  if (numPulses < 2) return [];
-
-  const K = aftershockProductivity(magnitude) * 1.2;
-  const tMinHours = C_HOURS;
-  const rateAtStart = omoriRate(tMinHours, K);
-
-  const pulses: AftershockPulse[] = [];
-  for (let i = 0; i < numPulses; i++) {
-    const frac = i / (numPulses - 1);
-    // Log-spaced sample points: Omori decay is steepest right after the
-    // mainshock, so pulses cluster there and thin out toward the tail,
-    // matching the real shape instead of landing at even audio-time steps.
-    const tHours = tMinHours * Math.pow(realWindowHours / tMinHours, frac);
-    const rate = omoriRate(tHours, K);
-    const amplitude = clamp((rate / rateAtStart) * maxAmplitude, 0, maxAmplitude);
-    const delayMs = (tHours / realWindowHours) * audioWindowMs;
-    pulses.push({ delayMs, amplitude });
+export function expectedAftershockCount(
+  mainshockMagnitude: number,
+  tStartHours: number,
+  tEndHours: number,
+  c = C_HOURS,
+  p = P,
+): number {
+  const K = aftershockProductivityK(mainshockMagnitude);
+  const start = Math.max(0, tStartHours) + c;
+  const end = Math.max(start, tEndHours + c);
+  if (Math.abs(p - 1) < 1e-9) {
+    return K * Math.log(end / start);
   }
-  return pulses;
+  return (K / (1 - p)) * (Math.pow(end, 1 - p) - Math.pow(start, 1 - p));
 }
+
+/**
+ * Gutenberg-Richter exceedance fraction: what fraction of aftershocks at/above
+ * `referenceMagnitude` are themselves at/above `thresholdMagnitude`. Clamped
+ * to 1 (a threshold at or below the reference can't be "more than all of them").
+ */
+export function gutenbergRichterExceedanceFraction(
+  thresholdMagnitude: number,
+  referenceMagnitude: number = REFERENCE_MAGNITUDE,
+  bValue: number = DEFAULT_B_VALUE,
+): number {
+  return clamp(Math.pow(10, -bValue * (thresholdMagnitude - referenceMagnitude)), 0, 1);
+}
+
+export interface DamagingAftershockOptions {
+  dangerousMagnitude?: number;
+  referenceMagnitude?: number;
+  bValue?: number;
+}
+
+/**
+ * Probability of at least one damaging aftershock (>= `dangerousMagnitude`,
+ * default M5.0) occurring between `tStartHours` and `tEndHours` after the
+ * mainshock, treating aftershocks as a Poisson process (the standard
+ * assumption behind real Reasenberg-Jones-style aftershock forecasts): a
+ * simplified combination of the real Omori-Utsu temporal decay and the real
+ * Gutenberg-Richter magnitude-frequency relation.
+ */
+export function damagingAftershockProbability(
+  mainshockMagnitude: number,
+  tStartHours: number,
+  tEndHours: number,
+  options: DamagingAftershockOptions = {},
+): number {
+  const referenceMagnitude = options.referenceMagnitude ?? REFERENCE_MAGNITUDE;
+  const dangerousMagnitude = options.dangerousMagnitude ?? DEFAULT_DANGEROUS_MAGNITUDE;
+  const bValue = options.bValue ?? DEFAULT_B_VALUE;
+
+  const expectedTotal = expectedAftershockCount(mainshockMagnitude, tStartHours, tEndHours);
+  const fraction = gutenbergRichterExceedanceFraction(dangerousMagnitude, referenceMagnitude, bValue);
+  const expectedDamaging = expectedTotal * fraction;
+  return clamp(1 - Math.exp(-expectedDamaging), 0, 1);
+}
+
+export const OMORI_CONSTANTS = {
+  P,
+  C_HOURS,
+  MIN_MAGNITUDE_FOR_WINDOW,
+  MIN_SIG_FOR_WINDOW,
+  REFERENCE_MAGNITUDE,
+  DEFAULT_B_VALUE,
+  DEFAULT_DANGEROUS_MAGNITUDE,
+};

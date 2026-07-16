@@ -1,6 +1,7 @@
 // Minimal app-shell service worker: stale-while-revalidate for same-origin
-// GET requests, and it deliberately never touches /api/* — quakes and
-// presets must always hit the network, never a stale cache.
+// GET requests, and it deliberately never touches /api/* — the live quake
+// feed and the shared world/ledger state must always hit the network, never
+// a stale cache.
 const CACHE_NAME = 'fault-line-v1';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 

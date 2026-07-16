@@ -118,6 +118,25 @@ describe('GET /api/world', () => {
     expect(res.body.activeAftershockWindow).toBeNull();
   });
 
+  it('survives a burst of concurrent requests without a torn-file crash', async () => {
+    // This is the exact shape of the bug this test guards against: before the
+    // shared file's read-modify-write was serialized via worldStore.transact,
+    // overlapping GET /api/world calls (two tabs, dev-mode double polling,
+    // etc.) could race to write world.json, occasionally leaving it
+    // truncated/invalid and crashing the whole process on the next read.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => mockUsgsResponse([quakeFeature({ id: 'burst-quake', mag: 5.5, lon: -122.4, lat: 37.8 })])),
+    );
+    const app = await freshApp();
+
+    const responses = await Promise.all(Array.from({ length: 15 }, () => request(app).get('/api/world')));
+    for (const res of responses) {
+      expect(res.status).toBe(200);
+      expect(res.body.sites).toHaveLength(6);
+    }
+  });
+
   it('finalizes an expired window into the ledger and clears it', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));

@@ -255,7 +255,7 @@ Every pure/deterministic function in this codebase has a real Vitest unit test: 
 - **World processing is lazy, not continuous.** The server ingests new quakes and finalizes aftershock windows only when `GET /api/world` is called, not via a background worker — if nobody has the app open for a while, ingestion simply catches up (correctly, since everything is computed from real timestamps) the next time someone does.
 - **The rarity score is a rough Gutenberg-Richter-style statistical estimate, not a calibrated catalog frequency.** It uses a fixed global b-value and rough global depth-band proportions, not a live-fit model of the actual current catalog.
 - **The ledger is returned in full over the API, unpaginated.** Fine at hobby-project scale; would need pagination for a long-lived deployment.
-- **The USGS feed can lag or be temporarily delayed or unavailable.** The world engine simply skips ingestion for that pass and catches up next time; it never crashes the endpoint.
+- **The USGS feed can lag or be temporarily delayed or unavailable.** The world engine simply skips ingestion for that pass and catches up next time; it never crashes the endpoint. Reads/writes against the shared `world.json` file are also serialized through a single in-process lock (`worldStore.transact`) and written atomically (temp file + rename), so two overlapping requests — two tabs open, a dev-mode double-poll — can no longer race and corrupt the file. An earlier version of this app didn't serialize that read-modify-write cycle and could crash the whole server under concurrent load with `Unexpected end of JSON input`; that's what this guards against now.
 
 ---
 

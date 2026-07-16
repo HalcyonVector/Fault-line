@@ -8,7 +8,7 @@ import { fetchQuakes } from './usgsFeed.js';
 import { SITES, getSite } from './sites.js';
 import { computeImpact, haversineDistanceKm } from './damageModel.js';
 import { computeOverduePressure } from './overduePressure.js';
-import { readWorld, writeWorld } from './worldStore.js';
+import { transact } from './worldStore.js';
 
 const DAMAGE_RADIUS_KM = 2500; // beyond this the attenuation formula already floors near zero; kept as a cheap pre-filter
 const MIN_LOGGED_INTENSITY = 2; // don't clutter the ledger with imperceptible shaking
@@ -152,12 +152,12 @@ export async function processWorld(world, nowMs = Date.now()) {
   return world;
 }
 
-/** Loads, processes, and persists the world in one call — what the routes use. */
+/** Loads, processes, and persists the world in one locked transaction. */
 export async function tick(nowMs = Date.now()) {
-  const world = await readWorld();
-  await processWorld(world, nowMs);
-  await writeWorld(world);
-  return world;
+  return transact(async (world) => {
+    await processWorld(world, nowMs);
+    return world;
+  });
 }
 
 /** Builds the client-facing view: site catalog metadata merged with live state + derived overdue pressure. */

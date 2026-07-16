@@ -25,6 +25,12 @@ function Gauge({ label, value, max = 100, tone }: { label: string; value: number
   );
 }
 
+const STATUS_LABEL: Record<'cyan' | 'warn' | 'danger', string> = {
+  cyan: 'Stable',
+  warn: 'Watch',
+  danger: 'Critical',
+};
+
 export function SiteGrid({ sites, budget, onAllocate, allocating, selectedSiteId, onSelectSite }: SiteGridProps) {
   const [amounts, setAmounts] = useState<Record<string, number>>({});
 
@@ -45,39 +51,50 @@ export function SiteGrid({ sites, budget, onAllocate, allocating, selectedSiteId
             <article
               key={site.id}
               className={`site-tile${selectedSiteId === site.id ? ' site-tile-selected' : ''}`}
+              data-tone={healthTone}
               onClick={() => onSelectSite?.(site.id)}
             >
               <header className="site-tile-head">
-                <span className="site-tile-name">{site.name}</span>
-                <span className="site-tile-country">{site.country}</span>
+                <div className="site-tile-heading">
+                  <span className="site-tile-name">{site.name}</span>
+                  <span className="site-tile-country">{site.country}</span>
+                </div>
+                <span className="site-tile-status" data-tone={healthTone}>
+                  {STATUS_LABEL[healthTone]}
+                </span>
               </header>
+
               <p className="site-tile-fault">{site.faultSystem}</p>
 
-              <Gauge label="Resilience" value={site.resilience} tone="cyan" />
-              <Gauge label="Health" value={site.health} tone={healthTone} />
-              <Gauge label="Overdue Pressure" value={site.overduePressure.clamped * 100} tone="pressure" />
+              <div className="site-tile-gauges">
+                <Gauge label="Resilience" value={site.resilience} tone="cyan" />
+                <Gauge label="Health" value={site.health} tone={healthTone} />
+                <Gauge label="Overdue Pressure" value={site.overduePressure.clamped * 100} tone="pressure" />
+              </div>
 
-              <p className="site-tile-meta">
-                Recurrence ~{site.recurrenceYears}y · last major rupture ~{site.lastMajorRuptureYear} ·{' '}
-                {(site.overduePressure.raw * 100).toFixed(0)}% of interval elapsed
-              </p>
+              <div className="site-tile-footer">
+                <p className="site-tile-meta">
+                  Recurrence ~{site.recurrenceYears}y · last major rupture ~{site.lastMajorRuptureYear} ·{' '}
+                  {(site.overduePressure.raw * 100).toFixed(0)}% of interval elapsed
+                </p>
 
-              <div className="site-tile-allocate" onClick={(e) => e.stopPropagation()}>
-                <input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={amount}
-                  onChange={(e) => setAmounts((prev) => ({ ...prev, [site.id]: Number(e.target.value) }))}
-                  aria-label={`Amount to allocate to ${site.name}`}
-                />
-                <button
-                  type="button"
-                  disabled={!canAfford || allocating === site.id}
-                  onClick={() => onAllocate(site.id, amount)}
-                >
-                  {allocating === site.id ? 'Allocating…' : 'Allocate'}
-                </button>
+                <div className="site-tile-allocate" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={amount}
+                    onChange={(e) => setAmounts((prev) => ({ ...prev, [site.id]: Number(e.target.value) }))}
+                    aria-label={`Amount to allocate to ${site.name}`}
+                  />
+                  <button
+                    type="button"
+                    disabled={!canAfford || allocating === site.id}
+                    onClick={() => onAllocate(site.id, amount)}
+                  >
+                    {allocating === site.id ? 'Allocating…' : 'Allocate'}
+                  </button>
+                </div>
               </div>
             </article>
           );

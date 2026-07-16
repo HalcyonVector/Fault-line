@@ -165,14 +165,16 @@ fault-line/
         │   ├── rarityScore.ts        # objective statistical rarity scoring for the intel log
         │   └── glyph.ts              # deterministic per-event waveform glyph
         ├── map/
-        │   └── projection.ts         # equirectangular projection (pure), reused by the threat board
+        │   ├── projection.ts         # equirectangular projection (pure), reused by the threat board
+        │   ├── panZoom.ts            # pure screen<->world fit/zoom/pan-clamp math (contain-fit, zoom-around-cursor, pan clamping)
+        │   └── dragState.ts          # pure drag-state reducer: distinguishes a click from a pan/drag release
         ├── inputs/
         │   ├── useQuakeFeed.ts       # polls the server's USGS proxy
         │   └── useWorldState.ts      # polls the shared server world/ledger state
         ├── lib/
         │   └── formatTime.ts         # clock + "time ago" formatting
         └── components/
-            ├── ThreatBoard.tsx       # tactical world map: land silhouette, sites, recent quakes, radar sweep
+            ├── ThreatBoard.tsx       # tactical world map: land silhouette, sites, recent quakes, radar sweep — draggable to pan, scroll/pinch to zoom, fits any panel size without distorting geography
             ├── SiteGrid.tsx          # one tile per site: resilience/health/overdue gauges + allocate control
             ├── IntelLog.tsx          # scrolling global event log with rarity + glyph
             ├── AftershockConsole.tsx # lights up only while a decision window is open

@@ -28,6 +28,16 @@
 
 .ops-app {
   position: relative;
+  /* A definite height (not just a min-height floor) so the .ops-grid ->
+     panel -> flex/grid chain below has a resolvable size to distribute:
+     with only min-height, the browser can end up treating this chain as
+     having an indefinite height, which manifested as a runaway feedback
+     loop (the map panel measuring out at several times the viewport's
+     height) once the map became a flex:1 element with its own intrinsic
+     SVG sizing. Individual panels still scroll internally (see
+     .site-grid-tiles / .intel-log-list overflow-y), so content never needs
+     the page itself to grow past the viewport. */
+  height: 100vh;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -116,7 +126,16 @@
   min-height: 0;
   display: grid;
   grid-template-columns: 1.6fr 1fr;
-  grid-template-rows: minmax(260px, 1.2fr) auto minmax(220px, 1fr);
+  /* All three left-column rows keep a definite `fr` share so the grid's
+     total height resolves cleanly against the viewport (an `auto` track
+     here previously caused a runaway intrinsic-sizing feedback loop with
+     the flex:1 map panel, blowing the whole page out to several times the
+     viewport height). Board gets the larger share now that it's an
+     interactive, worth-the-room map; Site Status keeps a smaller floor
+     since its cards no longer need to stretch to fill the row (see
+     .site-grid-tiles below) — any leftover row height is just quiet empty
+     space under the card grid, not space forced into each card. */
+  grid-template-rows: minmax(300px, 1.3fr) auto minmax(200px, 1fr);
   grid-template-areas:
     'board intel'
     'console intel'
@@ -188,6 +207,15 @@
   width: 100%;
   height: 100%;
   display: block;
+  cursor: grab;
+  /* We handle pan/zoom entirely ourselves via pointer events; tell the
+     browser not to intercept touch gestures (scroll/pinch-refresh) so
+     dragging and pinch-zooming the map itself works on touch devices. */
+  touch-action: none;
+}
+
+.threat-board-svg:active {
+  cursor: grabbing;
 }
 
 .board-ocean {
@@ -198,6 +226,7 @@
   fill: #0e2228;
   stroke: var(--cyan-dim);
   stroke-width: 0.4;
+  vector-effect: non-scaling-stroke;
 }
 
 .board-quake {
@@ -206,6 +235,38 @@
 
 .board-site {
   cursor: pointer;
+}
+
+.threat-board-controls {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 2;
+}
+
+.threat-board-zoom-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  background: rgba(7, 16, 20, 0.85);
+  color: var(--cyan);
+  border: 1px solid var(--line);
+}
+
+.threat-board-zoom-btn:hover {
+  background: rgba(63, 230, 255, 0.16);
+}
+
+.threat-board-reset-btn {
+  font-size: 12px;
 }
 
 .board-site-dot {
@@ -280,64 +341,147 @@
   min-height: 0;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
-  padding: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  /* The actual fix for the dead-space bug: grid rows and grid items both
+     default to "stretch", which inflates every row (and therefore every
+     card) to fill whatever leftover height the flex parent handed down.
+     Anchoring both to the start keeps each card's height driven purely by
+     its own content. */
+  align-content: start;
+  align-items: start;
+  gap: 12px;
+  padding: 12px;
 }
 
 .site-tile {
+  position: relative;
   border: 1px solid var(--line);
-  background: var(--panel-bg-raised);
-  padding: 10px;
+  border-left: 3px solid var(--cyan-dim);
+  background: linear-gradient(180deg, var(--panel-bg-raised), rgba(10, 22, 26, 0.55));
+  padding: 12px 14px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.site-tile:hover {
+  border-color: var(--cyan-dim);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.site-tile[data-tone='warn'] {
+  border-left-color: var(--warn);
+}
+
+.site-tile[data-tone='danger'] {
+  border-left-color: var(--danger);
 }
 
 .site-tile-selected {
   border-color: var(--cyan);
-  box-shadow: 0 0 0 1px var(--cyan-dim);
+  box-shadow: 0 0 0 1px var(--cyan-dim), 0 0 16px var(--cyan-dim);
 }
 
 .site-tile-head {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.site-tile-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .site-tile-name {
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: 13px;
+  letter-spacing: 0.03em;
   color: var(--cyan);
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .site-tile-country {
   font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text-dim);
+}
+
+.site-tile-status {
+  flex-shrink: 0;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.site-tile-status[data-tone='cyan'] {
+  color: var(--cyan);
+}
+
+.site-tile-status[data-tone='warn'] {
+  color: var(--warn);
+}
+
+.site-tile-status[data-tone='danger'] {
+  color: var(--danger);
 }
 
 .site-tile-fault {
   margin: 0;
   font-size: 10px;
   color: var(--text-dim);
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(63, 230, 255, 0.1);
+}
+
+.site-tile-gauges {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.site-tile-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(63, 230, 255, 0.1);
 }
 
 .site-tile-meta {
   margin: 0;
   font-size: 9px;
   color: var(--text-dim);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .site-tile-allocate {
   display: flex;
   gap: 6px;
-  margin-top: 4px;
 }
 
 .site-tile-allocate input {
-  width: 56px;
+  width: 60px;
+  text-align: right;
+}
+
+.site-tile-allocate button {
+  flex: 1;
 }
 
 /* ---------- Gauges ---------- */
@@ -363,26 +507,32 @@
 }
 
 .gauge-track {
-  height: 5px;
+  height: 6px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--line);
+  overflow: hidden;
 }
 
 .gauge-fill {
   height: 100%;
   background: var(--cyan);
+  box-shadow: 0 0 6px var(--cyan-dim);
+  transition: width 0.3s ease;
 }
 
 .gauge[data-tone='warn'] .gauge-fill {
   background: var(--warn);
+  box-shadow: 0 0 6px rgba(255, 207, 77, 0.6);
 }
 
 .gauge[data-tone='danger'] .gauge-fill {
   background: var(--danger);
+  box-shadow: 0 0 6px rgba(255, 84, 104, 0.6);
 }
 
 .gauge[data-tone='pressure'] .gauge-fill {
   background: var(--pressure);
+  box-shadow: 0 0 6px rgba(255, 154, 61, 0.6);
 }
 
 /* ---------- Aftershock console ---------- */

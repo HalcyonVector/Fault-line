@@ -35,7 +35,7 @@ interface ThreatBoardProps {
 function healthColorVar(health: number): string {
   if (health < 35) return 'var(--danger)';
   if (health < 70) return 'var(--warn)';
-  return 'var(--cyan)';
+  return 'var(--ochre)';
 }
 
 function quakeRadius(mag: number): number {
@@ -306,7 +306,6 @@ export function ThreatBoard({ sites, recentQuakes, onSelectSite, selectedSiteId 
           )}
         </div>
         <div className="threat-board-sweep" aria-hidden="true" />
-        <div className="threat-board-scanlines" aria-hidden="true" />
       </div>
     </section>
   );

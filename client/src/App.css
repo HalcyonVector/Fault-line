@@ -1,24 +1,31 @@
 /* Fault Line: a seismic operations command center, a NORAD/mission-control
    HUD with multiple simultaneously-visible panels, not one soft ambient
-   hero background behind a hidden drawer. Cool cyan/electric-blue lines on
-   near-black, sharp panel edges/bezels, monospace type, scanlines and a
-   radar-sweep motif, glitch-style flashes when new events land. */
+   hero background behind a hidden drawer. Warm ochre/amber lines on a warm
+   near-black (this is an earth-science project, not a sci-fi bridge, so the
+   palette leans brown/earth-toned rather than cool blue), sharp panel
+   edges/bezels, monospace type, a radar-sweep motif, glitch-style flashes
+   when new events land. */
 
 :root {
-  --bg: #050a0c;
-  --bg-grid: rgba(46, 214, 255, 0.05);
-  --panel-bg: #071014;
-  --panel-bg-raised: #0a161a;
-  --cyan: #3fe6ff;
-  --cyan-dim: rgba(63, 230, 255, 0.35);
-  --cyan-faint: rgba(63, 230, 255, 0.14);
+  /* An earth-toned palette (this is an earthquake project, not a sci-fi
+     ship's console): warm near-black backgrounds, an ochre accent standing
+     in for the old cyan, and status colors pulled toward the same warm
+     register (brick-red danger, gold for the rarest intel tier) instead of
+     a cool blue/pink that clashed with the rest of the palette. */
+  --bg: #0c0805;
+  --bg-grid: rgba(212, 150, 80, 0.05);
+  --panel-bg: #14100a;
+  --panel-bg-raised: #1c150e;
+  --ochre: #e0a04a;
+  --ochre-dim: rgba(224, 160, 74, 0.35);
+  --ochre-faint: rgba(224, 160, 74, 0.14);
   --warn: #ffcf4d;
-  --danger: #ff5468;
+  --danger: #d1483a;
   --pressure: #ff9a3d;
-  --historic: #ff6bd6;
-  --text: #d8f6ff;
-  --text-dim: #6f97a0;
-  --line: rgba(63, 230, 255, 0.25);
+  --historic: #f4d35e;
+  --text: #f0e2cf;
+  --text-dim: #a08b70;
+  --line: rgba(224, 160, 74, 0.28);
   --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, ui-monospace, monospace;
 }
 
@@ -59,7 +66,7 @@
   gap: 12px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(63, 230, 255, 0.05), transparent);
+  background: linear-gradient(180deg, rgba(224, 160, 74, 0.05), transparent);
 }
 
 .ops-brand {
@@ -72,8 +79,8 @@
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.34em;
-  color: var(--cyan);
-  text-shadow: 0 0 12px var(--cyan-dim);
+  color: var(--ochre);
+  text-shadow: 0 0 12px var(--ochre-dim);
 }
 
 .ops-brand-sub {
@@ -108,7 +115,7 @@
 .ops-hud-value {
   font-size: 15px;
   font-weight: 700;
-  color: var(--cyan);
+  color: var(--ochre);
 }
 
 .ops-error-bar {
@@ -181,7 +188,7 @@
   gap: 8px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--line);
-  background: rgba(63, 230, 255, 0.04);
+  background: rgba(224, 160, 74, 0.04);
 }
 
 .panel-title {
@@ -189,7 +196,7 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--cyan);
+  color: var(--ochre);
 }
 
 .panel-sub {
@@ -231,7 +238,7 @@
 
 .board-land {
   fill: #0e2228;
-  stroke: var(--cyan-dim);
+  stroke: var(--ochre-dim);
   stroke-width: 0.4;
   vector-effect: non-scaling-stroke;
 }
@@ -264,12 +271,12 @@
   font-size: 14px;
   line-height: 1;
   background: rgba(7, 16, 20, 0.85);
-  color: var(--cyan);
+  color: var(--ochre);
   border: 1px solid var(--line);
 }
 
 .threat-board-zoom-btn:hover {
-  background: rgba(63, 230, 255, 0.16);
+  background: rgba(224, 160, 74, 0.16);
 }
 
 .threat-board-reset-btn {
@@ -299,16 +306,9 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: conic-gradient(from 0deg, transparent 0deg, rgba(63, 230, 255, 0.22) 8deg, transparent 40deg);
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(224, 160, 74, 0.22) 8deg, transparent 40deg);
   mix-blend-mode: screen;
   animation: sweep-rotate 6s linear infinite;
-}
-
-.threat-board-scanlines {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.18) 0px, rgba(0, 0, 0, 0.18) 1px, transparent 1px, transparent 3px);
 }
 
 @keyframes sweep-rotate {
@@ -365,7 +365,7 @@
 .site-tile {
   position: relative;
   border: 1px solid var(--line);
-  border-left: 3px solid var(--cyan-dim);
+  border-left: 3px solid var(--ochre-dim);
   background: linear-gradient(180deg, var(--panel-bg-raised), rgba(10, 22, 26, 0.55));
   padding: 12px 14px;
   cursor: pointer;
@@ -376,7 +376,7 @@
 }
 
 .site-tile:hover {
-  border-color: var(--cyan-dim);
+  border-color: var(--ochre-dim);
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
@@ -390,8 +390,8 @@
 }
 
 .site-tile-selected {
-  border-color: var(--cyan);
-  box-shadow: 0 0 0 1px var(--cyan-dim), 0 0 16px var(--cyan-dim);
+  border-color: var(--ochre);
+  box-shadow: 0 0 0 1px var(--ochre-dim), 0 0 16px var(--ochre-dim);
 }
 
 .site-tile-head {
@@ -412,7 +412,7 @@
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.03em;
-  color: var(--cyan);
+  color: var(--ochre);
   text-transform: uppercase;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -438,8 +438,8 @@
   white-space: nowrap;
 }
 
-.site-tile-status[data-tone='cyan'] {
-  color: var(--cyan);
+.site-tile-status[data-tone='ochre'] {
+  color: var(--ochre);
 }
 
 .site-tile-status[data-tone='warn'] {
@@ -455,7 +455,7 @@
   font-size: 10px;
   color: var(--text-dim);
   padding-bottom: 8px;
-  border-bottom: 1px solid rgba(63, 230, 255, 0.1);
+  border-bottom: 1px solid rgba(224, 160, 74, 0.1);
 }
 
 .site-tile-gauges {
@@ -469,7 +469,7 @@
   flex-direction: column;
   gap: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(63, 230, 255, 0.1);
+  border-top: 1px solid rgba(224, 160, 74, 0.1);
   /* Now that .site-tile stretches to match the tallest card in its row, push
      the footer to the bottom of that stretched height so the Allocate
      controls line up across a row instead of leftover space collecting in
@@ -509,7 +509,7 @@
   margin: 0;
   font-size: 10px;
   font-weight: 700;
-  color: var(--cyan);
+  color: var(--ochre);
   animation: allocate-confirm-fade 2.2s ease forwards;
 }
 
@@ -567,8 +567,8 @@
 
 .gauge-fill {
   height: 100%;
-  background: var(--cyan);
-  box-shadow: 0 0 6px var(--cyan-dim);
+  background: var(--ochre);
+  box-shadow: 0 0 6px var(--ochre-dim);
   transition: width 0.3s ease;
 }
 
@@ -597,17 +597,17 @@
 }
 
 .aftershock-console-active {
-  border-color: var(--cyan);
-  box-shadow: 0 0 18px var(--cyan-dim), inset 0 0 24px rgba(63, 230, 255, 0.08);
+  border-color: var(--ochre);
+  box-shadow: 0 0 18px var(--ochre-dim), inset 0 0 24px rgba(224, 160, 74, 0.08);
   animation: console-glow 1.6s ease-in-out infinite;
 }
 
 @keyframes console-glow {
   0%, 100% {
-    box-shadow: 0 0 10px var(--cyan-dim), inset 0 0 14px rgba(63, 230, 255, 0.06);
+    box-shadow: 0 0 10px var(--ochre-dim), inset 0 0 14px rgba(224, 160, 74, 0.06);
   }
   50% {
-    box-shadow: 0 0 24px var(--cyan-dim), inset 0 0 30px rgba(63, 230, 255, 0.12);
+    box-shadow: 0 0 24px var(--ochre-dim), inset 0 0 30px rgba(224, 160, 74, 0.12);
   }
 }
 
@@ -632,8 +632,8 @@
   height: 10px;
   margin-top: 4px;
   border-radius: 50%;
-  background: var(--cyan);
-  box-shadow: 0 0 10px var(--cyan-dim);
+  background: var(--ochre);
+  box-shadow: 0 0 10px var(--ochre-dim);
   animation: standby-pulse 2.4s ease-in-out infinite;
 }
 
@@ -728,7 +728,7 @@
 .aftershock-probability-value {
   font-size: 20px;
   font-weight: 700;
-  color: var(--cyan);
+  color: var(--ochre);
 }
 
 .aftershock-commit {
@@ -775,7 +775,7 @@
   display: flex;
   gap: 8px;
   padding: 6px 8px;
-  border: 1px solid rgba(63, 230, 255, 0.12);
+  border: 1px solid rgba(224, 160, 74, 0.12);
   background: var(--panel-bg-raised);
 }
 
@@ -785,7 +785,7 @@
 
 @keyframes intel-flash {
   0% {
-    background: rgba(63, 230, 255, 0.4);
+    background: rgba(224, 160, 74, 0.4);
     transform: translateX(-2px);
   }
   15% {
@@ -816,7 +816,7 @@
 
 .intel-entry-glyph span {
   flex: 1;
-  background: var(--cyan-dim);
+  background: var(--ochre-dim);
   min-height: 2px;
 }
 
@@ -837,7 +837,7 @@
 
 .intel-entry-mag {
   font-weight: 700;
-  color: var(--cyan);
+  color: var(--ochre);
 }
 
 .intel-entry-place {
@@ -864,7 +864,7 @@
 }
 
 .intel-entry-rarity[data-tier='notable'] {
-  color: var(--cyan);
+  color: var(--ochre);
 }
 
 .intel-entry-rarity[data-tier='rare'] {
@@ -893,13 +893,13 @@ input, select, button {
 
 button {
   cursor: pointer;
-  color: var(--cyan);
+  color: var(--ochre);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 button:hover:not(:disabled) {
-  background: rgba(63, 230, 255, 0.12);
+  background: rgba(224, 160, 74, 0.12);
 }
 
 button:disabled {

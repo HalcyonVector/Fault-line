@@ -11,7 +11,7 @@ interface SiteGridProps {
   onSelectSite?: (siteId: string) => void;
 }
 
-function Gauge({ label, value, max = 100, tone }: { label: string; value: number; max?: number; tone: 'cyan' | 'warn' | 'danger' | 'pressure' }) {
+function Gauge({ label, value, max = 100, tone }: { label: string; value: number; max?: number; tone: 'ochre' | 'warn' | 'danger' | 'pressure' }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
     <div className="gauge" data-tone={tone}>
@@ -26,8 +26,8 @@ function Gauge({ label, value, max = 100, tone }: { label: string; value: number
   );
 }
 
-const STATUS_LABEL: Record<'cyan' | 'warn' | 'danger', string> = {
-  cyan: 'Stable',
+const STATUS_LABEL: Record<'ochre' | 'warn' | 'danger', string> = {
+  ochre: 'Stable',
   warn: 'Watch',
   danger: 'Critical',
 };
@@ -53,7 +53,7 @@ export function SiteGrid({
       </header>
       <div className="site-grid-tiles">
         {sites.map((site) => {
-          const healthTone = site.health < 35 ? 'danger' : site.health < 70 ? 'warn' : 'cyan';
+          const healthTone = site.health < 35 ? 'danger' : site.health < 70 ? 'warn' : 'ochre';
           const amount = amountFor(site.id);
           const canAfford = amount > 0 && amount <= budget;
           return (
@@ -76,7 +76,7 @@ export function SiteGrid({
               <p className="site-tile-fault">{site.faultSystem}</p>
 
               <div className="site-tile-gauges">
-                <Gauge label="Resilience" value={site.resilience} tone="cyan" />
+                <Gauge label="Resilience" value={site.resilience} tone="ochre" />
                 <Gauge label="Health" value={site.health} tone={healthTone} />
                 <Gauge label="Overdue Pressure" value={site.overduePressure.clamped * 100} tone="pressure" />
               </div>

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { LedgerEntry, Site } from '../types';
 import { filterLedgerBySite, sortLedgerByRecency } from '../lib/ledgerFilters';
-import { buildLedgerExport } from '../lib/exportLedger';
 import { LedgerEntryRow } from './LedgerEntryRow';
 
 interface LedgerViewProps {
@@ -9,19 +8,6 @@ interface LedgerViewProps {
   ledger: LedgerEntry[];
   nowMs: number;
   initialSiteFilter?: string | null;
-}
-
-function downloadLedger(ledger: LedgerEntry[], nowMs: number) {
-  const { filename, json } = buildLedgerExport(ledger, nowMs);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
 }
 
 export function LedgerView({ sites, ledger, nowMs, initialSiteFilter = null }: LedgerViewProps) {
@@ -53,9 +39,6 @@ export function LedgerView({ sites, ledger, nowMs, initialSiteFilter = null }: L
             ))}
           </select>
         </label>
-        <button type="button" onClick={() => downloadLedger(ledger, nowMs)} disabled={ledger.length === 0}>
-          Export JSON
-        </button>
       </div>
 
       <div className="ledger-list">

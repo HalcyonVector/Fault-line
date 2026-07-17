@@ -220,20 +220,41 @@
      viewport height); Intelligence Feed now spans just those two rows
      instead of three.
 
-     Every floor is `min(Npx, Mvh)`, not a bare `Npx`, on purpose: a bare
-     pixel floor is an absolute lower bound that doesn't care how short the
-     actual viewport is, and floors summed across rows can straightforwardly
-     exceed a short-but-real browser window, forcing the whole page past
-     100vh and into an outer scrollbar (which is exactly what happened when
-     an earlier pass raised the board floor to fix it reading as a thin
-     banner). Capping each floor at a share of the viewport height means they
-     shrink together on a short window instead of forcing outer scroll; only
-     the fr portion (which only ever divides genuinely leftover space) still
-     governs sizing on a tall one. */
+     Board's and Site Status's floors are `min(Npx, Mvh)`, not a bare `Npx`,
+     on purpose: a bare pixel floor is an absolute lower bound that doesn't
+     care how short the actual viewport is, and floors summed across rows
+     can straightforwardly exceed a short-but-real browser window, forcing
+     the whole page past 100vh and into an outer scrollbar (which is exactly
+     what happened when an earlier pass raised the board floor to fix it
+     reading as a thin banner). Capping each floor at a share of the
+     viewport height means they shrink together on a short window instead of
+     forcing outer scroll.
+
+     Console's floor is a flat 130px, not vh-scaled, because its content
+     (a short, fixed line count of text) doesn't scale with viewport height
+     the way a map or a card grid does — vh-capping it the same way the
+     other two rows are shrank it below its own content's real height on a
+     shorter-but-common window (700px tall), forcing the exact internal
+     scroll/clipped-text this is fixing. 130px, not the standby content's own
+     ~88px, because the row also has to hold the panel's own header
+     (measured ~30px) above that content — sizing the floor to the content
+     alone and forgetting the header repeated the same bug at a smaller
+     margin.
+
+     Making room for that fixed 130px without reintroducing page-level
+     overflow at a short viewport means trimming the other two rows' vh
+     caps, and Site Status absorbs the trim rather than Board: Site Status
+     already relies on its cards scrolling internally by design (see
+     .site-grid-tiles below) so asking it to show fewer cards before
+     scrolling on a short window is an accepted, pre-existing trade-off,
+     whereas Board reads as a thin banner the moment its height drops — that
+     was its own dedicated fix earlier and re-shrinking it here would undo
+     that. Board's vh cap (39) is unchanged from that fix; only Site
+     Status's (was 25) is trimmed further, to 19. */
   grid-template-rows:
-    minmax(min(90px, 11vh), auto)
-    minmax(min(360px, 42vh), 1.6fr)
-    minmax(min(190px, 26vh), 1fr);
+    minmax(130px, auto)
+    minmax(min(360px, 39vh), 1.6fr)
+    minmax(min(190px, 19vh), 1fr);
   grid-template-areas:
     'console console'
     'board intel'
@@ -245,6 +266,16 @@
 @media (max-width: 900px) {
   .ops-grid {
     grid-template-columns: 1fr;
+    /* 4 stacked areas need 4 row-tracks — the desktop grid-template-rows
+       above only defines 3 (intel shares a row with board/sites there, but
+       gets its own full-width row here), so without this override the 4th
+       area got an implicit auto-sized track the browser picked on its own,
+       which could end up razor-thin. */
+    grid-template-rows:
+      minmax(130px, auto)
+      minmax(min(280px, 30vh), 1fr)
+      minmax(min(200px, 20vh), 1fr)
+      minmax(min(200px, 20vh), 1fr);
     grid-template-areas:
       'console'
       'board'

@@ -2,9 +2,7 @@
 
 A full-stack ops-center dashboard for a shared, persistent world: you manage a portfolio of six real cities sitting on six genuinely different real fault systems, and the **only clock driving the core loop is the live USGS Earthquake Hazards Program feed**: there is no simulated RNG anywhere in this game. When a real earthquake resolves against one of your sites, the outcome is computed from a real attenuation model and written permanently to an append-only historical ledger. It can never be undone, replayed, or reset. This is deliberately **one shared server-side world, not a per-browser session**: refreshing the page, or opening it on a different device, shows the same ongoing history, because it's tracking one real, ongoing thing, not a resettable game.
 
-Built with React, TypeScript, Express, and the same live USGS GeoJSON feed the project has used since its first iteration, a sibling project to [Petrichor](../Petrichor), but a deliberate visual and conceptual departure from it (see "UI Direction" below).
-
-> This project went through two prior full builds as a real-time audio-sonification engine (Tone.js synthesis reacting to earthquake data) before this pivot. The audio-sonification premise has been fully retired: there is no audio anywhere in this codebase anymore. What's kept from that era is the *domain math*: the Omori-Utsu aftershock decay law, the magnitude-energy scaling, and the tectonic-region classifier all transferred over, repurposed for a genuinely different mechanic instead of being thrown away.
+Built with React, TypeScript, Express, and the live USGS GeoJSON feed, a sibling project to [Petrichor](../Petrichor), but a deliberate visual and conceptual departure from it (see "UI Direction" below).
 
 ---
 
@@ -45,7 +43,7 @@ The live feed is real. Every quake it reports is checked against every site's re
 
 ## UI Direction: Sci-Fi Operations Command
 
-This is a deliberate departure from both [Petrichor](../Petrichor)'s and a planned sibling "ISS orbital drone" project's visual language: a single full-viewport ambient world map with a soft glassmorphism card floating over it. Fault Line instead reads as a **NORAD/mission-control HUD**: multiple panels simultaneously visible at all times (a global threat-board map, a site-status grid, a scrolling intelligence log, and an aftershock decision console that visibly lights up only when a window is open); nothing is hidden behind a single icon that reveals a slide-out drawer. Warm ochre/amber lines on a warm near-black (this is an earth-science project, not a sci-fi bridge, so the palette leans brown/earth-toned rather than the cooler cyan the first pass of this UI shipped with), monospace type, a radar-sweep motif on the threat board, sharp panel edges rather than rounded glass cards, and a glitch-style flash when a new event lands in the intelligence log.
+This is a deliberate departure from both [Petrichor](../Petrichor)'s and a planned sibling "ISS orbital drone" project's visual language: a single full-viewport ambient world map with a soft glassmorphism card floating over it. Fault Line instead reads as a **NORAD/mission-control HUD**: multiple panels simultaneously visible at all times (a global threat-board map, a site-status grid, a scrolling intelligence log, and an aftershock decision console that visibly lights up only when a window is open); nothing is hidden behind a single icon that reveals a slide-out drawer. Warm ochre/amber lines on a warm near-black (this is an earth-science project, not a sci-fi bridge, so the palette leans brown/earth-toned rather than cool blue), monospace type, a radar-sweep motif on the threat board, sharp panel edges rather than rounded glass cards, and a glitch-style flash when a new event lands in the intelligence log.
 
 ---
 
@@ -67,7 +65,7 @@ The server polls `all_day` by default (`USGS_FEED` env var to override). The wor
 
 | Layer | Technology | Details |
 |-------|-----------|---------|
-| **Frontend Framework** | React 18 + TypeScript | Vite dev server + build, strict TS config, `<StrictMode>` enabled (safe now, no live audio graph to double-invoke effects against) |
+| **Frontend Framework** | React 18 + TypeScript | Vite dev server + build, strict TS config, `<StrictMode>` enabled |
 | **State** | React hooks + polling | `useQuakeFeed` (global feed), `useWorldState` (shared server world); no external state library needed |
 | **Map** | `world-atlas` (land-110m TopoJSON) + `topojson-client` | Real cartography, bundled data, no external map-tile API/key, restyled as a tactical threat board, not an ambient hero |
 | **Backend Framework** | Express (Node.js, ESM) | USGS proxy + cache, world/ledger persistence + processing, static hosting |
@@ -75,8 +73,6 @@ The server polls `all_day` by default (`USGS_FEED` env var to override). The wor
 | **Persistence** | Flat JSON file (`server/data/world.json`) | Single shared world, no database, no auth |
 | **Testing** | Vitest + Supertest | Pure-logic unit tests (client + server) and HTTP-level route tests (server) |
 | **Dev Orchestration** | `concurrently` + `cross-env` | Runs client + server dev servers with one `npm run dev` |
-
-**Tone.js is gone.** The entire audio-synthesis layer (`AudioEngine`, `seismicTheory`, P/S wave audio-arrival timing, the recorder, the Media Session lock-screen hook, and Screen Wake Lock) has been removed along with it; none of it applies to a non-audio ops dashboard.
 
 ---
 
@@ -162,9 +158,9 @@ fault-line/
         ├── App.css                  # the sci-fi ops-center visual language
         ├── types.ts
         ├── seismology/
-        │   ├── energyMapping.ts      # magnitude→energy scaling, depth bands (kept from the audio build)
-        │   ├── unrestIndex.ts        # decayed-energy accumulator, repurposed as "Global Activity" HUD readout
-        │   ├── omoriAftershocks.ts   # repurposed: Omori-Utsu + Gutenberg-Richter aftershock probability forecast; estimateBValue fits the b-value live (Aki/Utsu MLE) instead of using a fixed constant
+        │   ├── energyMapping.ts      # magnitude→energy scaling, depth bands
+        │   ├── unrestIndex.ts        # decayed-energy accumulator driving the "Global Activity" HUD readout
+        │   ├── omoriAftershocks.ts   # Omori-Utsu + Gutenberg-Richter aftershock probability forecast; estimateBValue fits the b-value live (Aki/Utsu MLE)
         │   ├── tectonicRegion.ts     # coarse bounding-box tectonic-province classifier
         │   ├── regionDominance.ts    # per-region decayed energy + "dominant region" HUD readout
         │   ├── rarityScore.ts        # objective statistical rarity scoring for the intel log
@@ -251,7 +247,7 @@ npm test --prefix server         # Vitest + Supertest: health/quakes/world route
 npm test --prefix client         # Vitest: seismology math, rarity/glyph, projection, formatTime
 ```
 
-Every pure/deterministic function in this codebase has a real Vitest unit test: the damage/attenuation model, the overdue-pressure calc, the rarity scoring, the repurposed Omori-Utsu/Gutenberg-Richter probability math, the live b-value estimator (including a synthetic-catalog test that verifies it actually recovers a known true b-value, not just that it returns some number), the energy/magnitude scaling, haversine distance, the tectonic-region classifier, the equirectangular projection and pan/zoom/drag-state math behind the threat board's map, the overdue-ranking logic behind the most-overdue callout, and the ledger's cursor-pagination logic (tie-breaking when entries share a timestamp, cursor continuation, limit clamping). The world/ledger routes are covered with Supertest, with `fetch` mocked to simulate specific live-quake scenarios (a strong quake near a site, a distant weak one, a magnitude-6+ mainshock opening and later expiring an aftershock decision window, a burst of concurrent requests) and an isolated `WORLD_DATA_FILE` per test so runs never touch real data or each other. The stateful polling hooks and DOM-heavy map/log/console rendering are exercised by manual/browser testing rather than unit tests, same testing philosophy as before: the pure math each one is built on is fully unit-tested even though the rendering shell isn't.
+Every pure/deterministic function in this codebase has a real Vitest unit test: the damage/attenuation model, the overdue-pressure calc, the rarity scoring, the Omori-Utsu/Gutenberg-Richter probability math, the live b-value estimator (including a synthetic-catalog test that verifies it actually recovers a known true b-value, not just that it returns some number), the energy/magnitude scaling, haversine distance, the tectonic-region classifier, the equirectangular projection and pan/zoom/drag-state math behind the threat board's map, the overdue-ranking logic behind the most-overdue callout, and the ledger's cursor-pagination logic (tie-breaking when entries share a timestamp, cursor continuation, limit clamping). The world/ledger routes are covered with Supertest, with `fetch` mocked to simulate specific live-quake scenarios (a strong quake near a site, a distant weak one, a magnitude-6+ mainshock opening and later expiring an aftershock decision window, a burst of concurrent requests) and an isolated `WORLD_DATA_FILE` per test so runs never touch real data or each other. The stateful polling hooks and DOM-heavy map/log/console rendering are exercised by manual/browser testing rather than unit tests: the pure math each one is built on is fully unit-tested even though the rendering shell isn't.
 
 ---
 
@@ -265,7 +261,7 @@ Every pure/deterministic function in this codebase has a real Vitest unit test: 
 - **This is a single shared world with no authentication.** Anyone who can reach the server can spend the shared resilience budget or commit an aftershock response; there are no accounts, no per-user state, and no access control. That's a deliberate simplicity choice for a hobby project, not a production posture.
 - **World processing is lazy, not continuous.** The server ingests new quakes and finalizes aftershock windows only when `GET /api/world` is called, not via a background worker; if nobody has the app open for a while, ingestion simply catches up (correctly, since everything is computed from real timestamps) the next time someone does.
 - **The rarity score is a rough Gutenberg-Richter-style statistical estimate, not a calibrated catalog frequency.** It uses a fixed global b-value and rough global depth-band proportions, not a live-fit model of the actual current catalog.
-- **The USGS feed can lag or be temporarily delayed or unavailable.** The world engine simply skips ingestion for that pass and catches up next time; it never crashes the endpoint. Reads/writes against the shared `world.json` file are also serialized through a single in-process lock (`worldStore.transact`) and written atomically (temp file + rename), so two overlapping requests (two tabs open, a dev-mode double-poll) can no longer race and corrupt the file. An earlier version of this app didn't serialize that read-modify-write cycle and could crash the whole server under concurrent load with `Unexpected end of JSON input`; that's what this guards against now.
+- **The USGS feed can lag or be temporarily delayed or unavailable.** The world engine simply skips ingestion for that pass and catches up next time; it never crashes the endpoint. Reads/writes against the shared `world.json` file are also serialized through a single in-process lock (`worldStore.transact`) and written atomically (temp file + rename), so two overlapping requests (two tabs open, a dev-mode double-poll) can't race and corrupt the file.
 
 ---
 

@@ -100,7 +100,16 @@ export interface ActiveAftershockWindow {
 export interface WorldView {
   sites: Site[];
   budget: ResilienceBudget;
-  ledger: LedgerEntry[];
+  /** Total ledger entries written so far. The full history lives behind GET /api/world/ledger, paginated. */
+  ledgerCount: number;
   activeAftershockWindow: ActiveAftershockWindow | null;
   serverTimeMs: number;
+}
+
+/** One page of GET /api/world/ledger. */
+export interface LedgerPage {
+  entries: LedgerEntry[];
+  hasMore: boolean;
+  nextCursor: string | null;
+  totalMatching: number;
 }

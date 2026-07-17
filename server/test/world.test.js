@@ -53,7 +53,8 @@ describe('GET /api/world', () => {
     expect(res.status).toBe(200);
     expect(res.body.sites).toHaveLength(6);
     expect(res.body.budget.value).toBe(100);
-    expect(res.body.ledger).toEqual([]);
+    expect(res.body.ledgerCount).toBe(0);
+    expect(res.body.ledger).toBeUndefined(); // full history lives behind GET /api/world/ledger now, not the main snapshot
     expect(res.body.activeAftershockWindow).toBeNull();
 
     const ids = res.body.sites.map((s) => s.id);
@@ -76,7 +77,10 @@ describe('GET /api/world', () => {
     const app = await freshApp();
 
     const res = await request(app).get('/api/world');
-    const impactEntries = res.body.ledger.filter((e) => e.type === 'quake-impact');
+    expect(res.body.ledgerCount).toBeGreaterThan(0);
+
+    const ledgerRes = await request(app).get('/api/world/ledger');
+    const impactEntries = ledgerRes.body.entries.filter((e) => e.type === 'quake-impact');
     expect(impactEntries.length).toBeGreaterThan(0);
 
     const sf = res.body.sites.find((s) => s.id === 'san-francisco');
@@ -91,7 +95,9 @@ describe('GET /api/world', () => {
     const app = await freshApp();
 
     const res = await request(app).get('/api/world');
-    expect(res.body.ledger.filter((e) => e.type === 'quake-impact')).toEqual([]);
+    expect(res.body.ledgerCount).toBe(0);
+    const ledgerRes = await request(app).get('/api/world/ledger');
+    expect(ledgerRes.body.entries.filter((e) => e.type === 'quake-impact')).toEqual([]);
   });
 
   it('opens an aftershock decision window for a magnitude >= 6 mainshock', async () => {
@@ -153,10 +159,71 @@ describe('GET /api/world', () => {
 
     const closed = await request(app).get('/api/world');
     expect(closed.body.activeAftershockWindow).toBeNull();
-    const windowEntries = closed.body.ledger.filter((e) => e.type === 'aftershock-window');
+    const closedLedger = await request(app).get('/api/world/ledger');
+    const windowEntries = closedLedger.body.entries.filter((e) => e.type === 'aftershock-window');
     expect(windowEntries).toHaveLength(1);
     expect(windowEntries[0].mainshockQuakeId).toBe('expiring');
     expect(windowEntries[0].committed).toBeNull();
+  });
+});
+
+describe('GET /api/world/ledger', () => {
+  it('returns an empty page when nothing has happened yet', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => mockUsgsResponse([])));
+    const app = await freshApp();
+
+    const res = await request(app).get('/api/world/ledger');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ entries: [], hasMore: false, nextCursor: null, totalMatching: 0 });
+  });
+
+  it('pages through entries newest-first using the returned cursor', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        mockUsgsResponse([
+          quakeFeature({ id: 'q1', mag: 6.0, lon: -122.42, lat: 37.78, sig: 700 }),
+          quakeFeature({ id: 'q2', mag: 6.5, lon: -122.42, lat: 37.78, sig: 750 }),
+        ]),
+      ),
+    );
+    const app = await freshApp();
+    await request(app).get('/api/world'); // ingest
+
+    const page1 = await request(app).get('/api/world/ledger?limit=1');
+    expect(page1.status).toBe(200);
+    expect(page1.body.entries).toHaveLength(1);
+    expect(page1.body.totalMatching).toBeGreaterThanOrEqual(2);
+
+    if (page1.body.hasMore) {
+      const page2 = await request(app).get(`/api/world/ledger?limit=1&cursor=${encodeURIComponent(page1.body.nextCursor)}`);
+      expect(page2.status).toBe(200);
+      expect(page2.body.entries[0].id).not.toBe(page1.body.entries[0].id);
+    }
+  });
+
+  it('filters to a single site', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => mockUsgsResponse([quakeFeature({ id: 'sf-only', mag: 7.0, lon: -122.42, lat: 37.78, sig: 900 })])),
+    );
+    const app = await freshApp();
+    await request(app).get('/api/world');
+
+    const sfRes = await request(app).get('/api/world/ledger?siteId=san-francisco');
+    expect(sfRes.body.entries.every((e) => e.siteId === 'san-francisco' || e.nearestSiteId === 'san-francisco')).toBe(true);
+
+    const tokyoRes = await request(app).get('/api/world/ledger?siteId=tokyo');
+    expect(tokyoRes.body.entries).toEqual([]);
+  });
+
+  it('rejects an unknown site filter', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => mockUsgsResponse([])));
+    const app = await freshApp();
+
+    const res = await request(app).get('/api/world/ledger?siteId=atlantis');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('invalid_site');
   });
 });
 

@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { transact } from '../lib/worldStore.js';
+import { transact, readWorld } from '../lib/worldStore.js';
 import { processWorld, buildWorldView } from '../lib/worldEngine.js';
 import { getSite } from '../lib/sites.js';
+import { paginateLedger } from '../lib/ledgerPagination.js';
 
 const router = Router();
 
@@ -22,6 +23,34 @@ router.get('/', async (_req, res) => {
     res.json(view);
   } catch (err) {
     console.error('[world] GET failed:', err.message);
+    res.status(500).json({ error: 'world_unavailable', message: err.message });
+  }
+});
+
+// GET /api/world/ledger pages through the permanent ledger independently of
+// the main world snapshot: GET /api/world itself only reports ledgerCount
+// (see worldEngine.js's buildWorldView), not the full ledger array, since
+// shipping the whole growing history on every regular poll is exactly the
+// "unpaginated ledger" limitation this replaces. A read-only report like
+// this doesn't need `transact`'s mutation lock: writeWorld's atomic
+// temp-file-then-rename means a concurrent reader always sees either the
+// fully-old or fully-new file, never a torn one.
+router.get('/ledger', async (req, res) => {
+  const { siteId, cursor, limit } = req.query;
+  if (siteId && !getSite(siteId)) {
+    return res.status(400).json({ error: 'invalid_site', message: 'Unknown siteId' });
+  }
+
+  try {
+    const world = await readWorld();
+    const page = paginateLedger(world.ledger, {
+      siteId: siteId || null,
+      cursor: cursor || null,
+      limit: limit !== undefined ? Number(limit) : undefined,
+    });
+    res.json(page);
+  } catch (err) {
+    console.error('[world] ledger pagination failed:', err.message);
     res.status(500).json({ error: 'world_unavailable', message: err.message });
   }
 });

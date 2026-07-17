@@ -869,6 +869,13 @@
   color: var(--ochre);
 }
 
+.aftershock-probability-bvalue {
+  display: block;
+  font-size: 9px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
 .aftershock-commit {
   display: flex;
   gap: 6px;
@@ -1193,6 +1200,20 @@ button:disabled {
   font-size: 10px;
   color: var(--text-dim);
   white-space: nowrap;
+}
+
+.ledger-load-more {
+  margin: 4px auto 2px;
+  padding: 6px 18px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+  font-size: 10.5px;
+}
+
+.ledger-load-more:hover:not(:disabled) {
+  color: var(--ochre);
+  border-color: var(--ochre-dim);
 }
 
 /* ---------- Site detail modal ---------- */

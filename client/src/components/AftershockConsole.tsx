@@ -11,9 +11,11 @@ interface AftershockConsoleProps {
   budget: number;
   onCommit: (siteId: string, amount: number) => void;
   committing: boolean;
+  /** Live-estimated Gutenberg-Richter b-value from the actual global feed, or null to fall back to the textbook default. */
+  liveBValue?: number | null;
 }
 
-export function AftershockConsole({ window: win, sites, budget, onCommit, committing }: AftershockConsoleProps) {
+export function AftershockConsole({ window: win, sites, budget, onCommit, committing, liveBValue }: AftershockConsoleProps) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [siteId, setSiteId] = useState<string>(sites[0]?.id ?? '');
   const [amount, setAmount] = useState(10);
@@ -36,8 +38,10 @@ export function AftershockConsole({ window: win, sites, budget, onCommit, commit
 
   const probability = useMemo(() => {
     if (!win) return 0;
-    return damagingAftershockProbability(win.mainshockMagnitude, elapsedHours, elapsedHours + FORECAST_HORIZON_HOURS);
-  }, [win, elapsedHours]);
+    return damagingAftershockProbability(win.mainshockMagnitude, elapsedHours, elapsedHours + FORECAST_HORIZON_HOURS, {
+      ...(liveBValue != null ? { bValue: liveBValue } : {}),
+    });
+  }, [win, elapsedHours, liveBValue]);
 
   const nearestSite = win ? sites.find((s) => s.id === win.nearestSiteId) : undefined;
   const canCommit = active && amount > 0 && amount <= budget && !!siteId;
@@ -86,6 +90,11 @@ export function AftershockConsole({ window: win, sites, budget, onCommit, commit
                   P(damaging aftershock, next {FORECAST_HORIZON_HOURS}h), live
                 </span>
                 <span className="aftershock-probability-value">{(probability * 100).toFixed(2)}%</span>
+                <span className="aftershock-probability-bvalue">
+                  {liveBValue != null
+                    ? `b=${liveBValue.toFixed(2)} (fit live from the global feed)`
+                    : 'b=1.00 (textbook default; not enough live data yet to fit one)'}
+                </span>
               </div>
 
               <div className="aftershock-commit">

@@ -9,8 +9,16 @@
 // least one *damaging* aftershock lands in that horizon.
 //
 // This is illustrative, not a real forecast: the productivity constant (K)
-// and b-value below are reasonable textbook defaults, not fit to any
-// specific real aftershock sequence; see the README's Honest Limitations.
+// is a reasonable textbook default, not fit to any specific real aftershock
+// sequence (a live decision window is only ~75 real seconds long, nowhere
+// near enough of an actual sequence to fit K against; USGS's own generic
+// aftershock model makes the same call for the same reason, before enough
+// sequence-specific data exists). The b-value is different: `estimateBValue`
+// below is a genuine, standard estimator (Aki 1965's maximum-likelihood
+// method, with Utsu's 1965 half-bin correction for magnitude binning) fit
+// live against whatever quakes are actually streaming in through the global
+// feed right now, not a fixed constant. See the README's Honest Limitations
+// for what's still illustrative here.
 
 // Omori-Utsu aftershock decay law: rate(t) = K / (t + c)^p. p ~= 1.0 is the
 // classic Omori value; c is a small time offset that keeps the rate finite
@@ -88,6 +96,53 @@ export function gutenbergRichterExceedanceFraction(
   bValue: number = DEFAULT_B_VALUE,
 ): number {
   return clamp(Math.pow(10, -bValue * (thresholdMagnitude - referenceMagnitude)), 0, 1);
+}
+
+const MIN_SAMPLE_SIZE_FOR_B_VALUE = 30;
+const MAGNITUDE_BIN_WIDTH = 0.1; // USGS catalog magnitudes are reported to this precision
+const MIN_B_VALUE = 0.4;
+const MAX_B_VALUE = 2.0;
+
+/**
+ * Aki's (1965) maximum-likelihood b-value estimator, with Utsu's (1965)
+ * half-bin correction for magnitude binning: b = log10(e) / (mean(M) - (Mc -
+ * deltaM/2)), fit against whatever magnitudes are passed in at/above the
+ * completeness threshold `magnitudeOfCompleteness`. This is the standard,
+ * textbook method (not a fixed constant): it genuinely reflects the shape of
+ * whatever catalog you hand it, which is why it's fit live against the real
+ * global feed rather than baked in as a number.
+ *
+ * Returns `null` when there isn't enough data to trust the estimate (fewer
+ * than `MIN_SAMPLE_SIZE_FOR_B_VALUE` qualifying events, or a degenerate
+ * catalog where every magnitude is identical) — callers should fall back to
+ * `DEFAULT_B_VALUE` in that case, the same way a real seismologist falls
+ * back to a regional/global average before a local catalog is large enough
+ * to fit reliably. The result is also clamped to a real-world-plausible
+ * range: an estimate outside roughly 0.4-2.0 is far more likely to indicate
+ * a still-too-small or still-incomplete sample than an actual b-value that
+ * extreme.
+ */
+export function estimateBValue(magnitudes: number[], magnitudeOfCompleteness: number = REFERENCE_MAGNITUDE): number | null {
+  const qualifying = magnitudes.filter((m) => Number.isFinite(m) && m >= magnitudeOfCompleteness);
+  if (qualifying.length < MIN_SAMPLE_SIZE_FOR_B_VALUE) return null;
+
+  // A catalog with zero actual spread (every qualifying event at the exact
+  // same magnitude) has no slope to estimate a b-value from at all. Checking
+  // this directly, rather than only via `spread <= 0` below, matters because
+  // the Utsu half-bin correction shifts the effective completeness threshold
+  // slightly *below* the raw one, which can make a perfectly flat catalog's
+  // corrected spread come out as a small positive number instead of ~0 —
+  // technically "not degenerate" by that check alone, but still meaningless.
+  if (qualifying.every((m) => m === qualifying[0])) return null;
+
+  const meanMagnitude = qualifying.reduce((sum, m) => sum + m, 0) / qualifying.length;
+  const correctedMc = magnitudeOfCompleteness - MAGNITUDE_BIN_WIDTH / 2;
+  const spread = meanMagnitude - correctedMc;
+  if (spread <= 0) return null;
+
+  const b = Math.LOG10E / spread;
+  if (!Number.isFinite(b)) return null;
+  return clamp(b, MIN_B_VALUE, MAX_B_VALUE);
 }
 
 export interface DamagingAftershockOptions {

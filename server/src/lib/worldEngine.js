@@ -160,7 +160,13 @@ export async function tick(nowMs = Date.now()) {
   });
 }
 
-/** Builds the client-facing view: site catalog metadata merged with live state + derived overdue pressure. */
+/**
+ * Builds the client-facing view: site catalog metadata merged with live
+ * state + derived overdue pressure. Reports `ledgerCount`, not the full
+ * `ledger` array — shipping the entire, ever-growing permanent history on
+ * every regular poll doesn't scale, and GET /api/world/ledger exists
+ * specifically for paging through the real thing on demand.
+ */
 export function buildWorldView(world, nowMs = Date.now()) {
   const currentYear = new Date(nowMs).getFullYear();
   const sites = SITES.map((site) => {
@@ -185,7 +191,7 @@ export function buildWorldView(world, nowMs = Date.now()) {
   return {
     sites,
     budget: world.budget,
-    ledger: world.ledger,
+    ledgerCount: world.ledger.length,
     activeAftershockWindow: world.activeAftershockWindow,
     serverTimeMs: nowMs,
   };

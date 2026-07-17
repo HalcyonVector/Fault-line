@@ -34,10 +34,10 @@ The live feed is real. Every quake it reports is checked against every site's re
 1. **Portfolio of real sites** (`server/src/lib/sites.js`): coordinates, fault-system name, recurrence interval, and last-major-rupture year for each of the six sites above.
 2. **Real attenuation damage model** (`server/src/lib/damageModel.js`): haversine distance from quake to site, a simplified MMI-like shaking-intensity estimate from magnitude/depth/distance, and damage scaled down (never to zero) by the site's current resilience. Pure, unit-tested functions.
 3. **Resilience budget with real-time regen**: a single shared budget (starts at 100, cap 100) that regenerates `+1/hour` of real wall-clock time, server-tracked (`server/src/lib/worldStore.js`, `worldEngine.js`). You spend it to raise a site's resilience (0-100), and because it only regenerates in real time, every allocation is a genuine opportunity cost.
-4. **Omori-Utsu + Gutenberg-Richter aftershock decision window**: when a live mainshock crosses M6 (or a high USGS `sig`), a ~75-second real-time decision window opens. `client/src/seismology/omoriAftershocks.ts` computes a live, continuously-updating probability of a damaging aftershock by integrating the real Omori-Utsu decay law over a forecast horizon and combining it with the Gutenberg-Richter magnitude-frequency relation (a simplified Reasenberg-Jones-style combination). You can commit available resilience budget to a site's emergency response before the window closes; whatever you decide (or don't) locks permanently into the ledger.
+4. **Omori-Utsu + Gutenberg-Richter aftershock decision window**: when a live mainshock crosses M6 (or a high USGS `sig`), a ~75-second real-time decision window opens. `client/src/seismology/omoriAftershocks.ts` computes a live, continuously-updating probability of a damaging aftershock by integrating the real Omori-Utsu decay law over a forecast horizon and combining it with the Gutenberg-Richter magnitude-frequency relation (a simplified Reasenberg-Jones-style combination). The Gutenberg-Richter b-value feeding that isn't a fixed constant: `estimateBValue` fits it live, via Aki's (1965) maximum-likelihood estimator with Utsu's (1965) half-bin correction, against whatever magnitudes are actually streaming in through the global feed right now, falling back to a textbook default when there isn't yet enough qualifying data (or when the live estimate falls outside a real-world-plausible range) to trust the fit. You can commit available resilience budget to a site's emergency response before the window closes; whatever you decide (or don't) locks permanently into the ledger.
 5. **Seismic-gap overdue-pressure gauge** (`server/src/lib/overduePressure.js`): (years since last major rupture) / (recurrence interval) for every site, shown continuously. This is purely informational; it never triggers anything itself, since there's no simulated RNG in the core loop. It exists so you can strategically pre-invest resilience in a site that's statistically overdue even though nothing has happened there yet.
 6. **Global intelligence log with rarity scoring** (`client/src/seismology/rarityScore.ts`): every real quake globally (not just ones touching your sites) streams into a scrolling log, each tagged with an objective rarity score from real magnitude/depth frequency relationships (bigger and/or anomalously deep events score higher, via a Gutenberg-Richter-style magnitude multiplier and a global depth-band frequency multiplier) plus a small deterministic glyph (`client/src/seismology/glyph.ts`) generated from the event's own stats.
-7. **Permanent Ledger view**: a second tab (alongside the main Operations dashboard) listing every ledger entry ever written, newest first, filterable by site (`client/src/components/LedgerView.tsx`, `client/src/lib/ledgerFilters.ts`). This is where the "permanent, unresettable" premise actually becomes something you can browse, not just a claim about the API response.
+7. **Permanent Ledger view**: a second tab (alongside the main Operations dashboard) paging through every ledger entry ever written, newest first, filterable by site (`client/src/components/LedgerView.tsx`, `client/src/inputs/useLedgerPage.ts`, `server/src/lib/ledgerPagination.js`). This is where the "permanent, unresettable" premise actually becomes something you can browse, not just a claim about the API response. `GET /api/world` itself only reports a `ledgerCount`; the full history is paged on demand through `GET /api/world/ledger`, cursor-based so a page never shifts under you as new entries land.
 8. **Site history drill-down**: a "History" button on each site card opens a modal (`client/src/components/SiteDetailModal.tsx`) with that site's full stats plus its own filtered ledger entries. A real modal with a real focus trap (Tab/Shift+Tab cycle inside it, Escape closes, focus returns to whatever opened it).
 9. **Most-overdue callout** (`client/src/lib/overdueRanking.ts`): the Site Status header surfaces whichever site currently has the highest seismic-gap pressure, clickable to jump straight to it on the map, so you don't have to compare six cards by eye.
 
@@ -129,6 +129,7 @@ fault-line/
 │   │   ├── quakes.test.js          # mocked USGS fetch, cache behavior
 │   │   ├── damageModel.test.js     # haversine, attenuation, damage math
 │   │   ├── overduePressure.test.js
+│   │   ├── ledgerPagination.test.js # cursor pagination: tie-breaking, hasMore, cursor continuation, limit clamping
 │   │   └── world.test.js           # Supertest against /api/world*, mocked fetch
 │   └── src/
 │       ├── app.js                  # createApp(): Express app (importable by tests)
@@ -139,10 +140,11 @@ fault-line/
 │       │   ├── damageModel.js      # haversine, attenuation/intensity, damage-vs-resilience
 │       │   ├── overduePressure.js  # seismic-gap overdue-pressure calc
 │       │   ├── worldStore.js       # flat-JSON persistence, WORLD_DATA_FILE override
-│       │   └── worldEngine.js      # budget regen, quake ingestion, aftershock windows, ledger
+│       │   ├── worldEngine.js      # budget regen, quake ingestion, aftershock windows, ledger
+│       │   └── ledgerPagination.js # cursor-based pagination + site filtering over the permanent ledger
 │       └── routes/
 │           ├── quakes.js           # USGS proxy
-│           └── world.js            # GET /api/world, allocate, commit-aftershock-response
+│           └── world.js            # GET /api/world, /api/world/ledger, allocate, commit-aftershock-response
 │
 └── client/
     ├── package.json
@@ -162,7 +164,7 @@ fault-line/
         ├── seismology/
         │   ├── energyMapping.ts      # magnitude→energy scaling, depth bands (kept from the audio build)
         │   ├── unrestIndex.ts        # decayed-energy accumulator, repurposed as "Global Activity" HUD readout
-        │   ├── omoriAftershocks.ts   # repurposed: Omori-Utsu + Gutenberg-Richter aftershock probability forecast
+        │   ├── omoriAftershocks.ts   # repurposed: Omori-Utsu + Gutenberg-Richter aftershock probability forecast; estimateBValue fits the b-value live (Aki/Utsu MLE) instead of using a fixed constant
         │   ├── tectonicRegion.ts     # coarse bounding-box tectonic-province classifier
         │   ├── regionDominance.ts    # per-region decayed energy + "dominant region" HUD readout
         │   ├── rarityScore.ts        # objective statistical rarity scoring for the intel log
@@ -173,10 +175,10 @@ fault-line/
         │   └── dragState.ts          # pure drag-state reducer: distinguishes a click from a pan/drag release
         ├── inputs/
         │   ├── useQuakeFeed.ts       # polls the server's USGS proxy
-        │   └── useWorldState.ts      # polls the shared server world/ledger state
+        │   ├── useWorldState.ts      # polls the shared server world snapshot (sites, budget, ledgerCount)
+        │   └── useLedgerPage.ts      # pages through GET /api/world/ledger for one site filter (or all)
         ├── lib/
         │   ├── formatTime.ts         # clock + "time ago" formatting
-        │   ├── ledgerFilters.ts      # site-agnostic ledger filtering across both entry shapes, recency sort
         │   └── overdueRanking.ts     # rank/pick sites by overdue pressure
         └── components/
             ├── ThreatBoard.tsx       # tactical world map: land silhouette, sites, recent quakes, radar sweep; draggable to pan, scroll/pinch to zoom, fits any panel size without distorting geography
@@ -197,7 +199,8 @@ fault-line/
 |--------|----------|-------------|
 | GET | `/api/health` | Liveness check |
 | GET | `/api/quakes` | Normalized recent quakes from the cached USGS feed |
-| GET | `/api/world` | Runs a processing pass (budget regen, window finalization, quake ingestion) and returns the full world view: sites + budget + ledger + active aftershock window |
+| GET | `/api/world` | Runs a processing pass (budget regen, window finalization, quake ingestion) and returns the world snapshot: sites + budget + `ledgerCount` + active aftershock window (not the full ledger; see below) |
+| GET | `/api/world/ledger` | Cursor-paginated permanent ledger. Query params: `siteId` (optional filter), `cursor` (from a previous response's `nextCursor`), `limit` (default 25, max 100). Returns `{ entries, hasMore, nextCursor, totalMatching }` |
 | POST | `/api/world/allocate` | `{ siteId, amount }`: spend resilience budget to raise a site's resilience |
 | POST | `/api/world/commit-aftershock-response` | `{ siteId, amount }`: commit budget to a site during an open aftershock decision window |
 
@@ -248,7 +251,7 @@ npm test --prefix server         # Vitest + Supertest: health/quakes/world route
 npm test --prefix client         # Vitest: seismology math, rarity/glyph, projection, formatTime
 ```
 
-Every pure/deterministic function in this codebase has a real Vitest unit test: the damage/attenuation model, the overdue-pressure calc, the rarity scoring, the repurposed Omori-Utsu/Gutenberg-Richter probability math, the energy/magnitude scaling, haversine distance, the tectonic-region classifier, the equirectangular projection and pan/zoom/drag-state math behind the threat board's map, and the ledger-filtering/overdue-ranking logic behind the Permanent Ledger view and the most-overdue callout. The world/ledger routes are covered with Supertest, with `fetch` mocked to simulate specific live-quake scenarios (a strong quake near a site, a distant weak one, a magnitude-6+ mainshock opening and later expiring an aftershock decision window, a burst of concurrent requests) and an isolated `WORLD_DATA_FILE` per test so runs never touch real data or each other. The stateful polling hooks and DOM-heavy map/log/console rendering are exercised by manual/browser testing rather than unit tests, same testing philosophy as before: the pure math each one is built on is fully unit-tested even though the rendering shell isn't.
+Every pure/deterministic function in this codebase has a real Vitest unit test: the damage/attenuation model, the overdue-pressure calc, the rarity scoring, the repurposed Omori-Utsu/Gutenberg-Richter probability math, the live b-value estimator (including a synthetic-catalog test that verifies it actually recovers a known true b-value, not just that it returns some number), the energy/magnitude scaling, haversine distance, the tectonic-region classifier, the equirectangular projection and pan/zoom/drag-state math behind the threat board's map, the overdue-ranking logic behind the most-overdue callout, and the ledger's cursor-pagination logic (tie-breaking when entries share a timestamp, cursor continuation, limit clamping). The world/ledger routes are covered with Supertest, with `fetch` mocked to simulate specific live-quake scenarios (a strong quake near a site, a distant weak one, a magnitude-6+ mainshock opening and later expiring an aftershock decision window, a burst of concurrent requests) and an isolated `WORLD_DATA_FILE` per test so runs never touch real data or each other. The stateful polling hooks and DOM-heavy map/log/console rendering are exercised by manual/browser testing rather than unit tests, same testing philosophy as before: the pure math each one is built on is fully unit-tested even though the rendering shell isn't.
 
 ---
 
@@ -257,12 +260,11 @@ Every pure/deterministic function in this codebase has a real Vitest unit test: 
 - **This is not an early-warning, hazard-forecasting, or safety tool of any kind.** No claim is made or implied about predicting real earthquakes, real aftershocks, or informing real-world safety decisions.
 - **The recurrence intervals and "last major rupture" years are rough, rounded public estimates, not authoritative hazard data.** They were assembled from public seismology summaries for a hobby project. Several carry real, acknowledged uncertainty; Wellington/Hikurangi's in particular is little more than an order-of-magnitude placeholder, since no confirmed great full-margin rupture exists in the ~200-year written record for that segment. See the notes on each site in `server/src/lib/sites.js`.
 - **The attenuation/damage model is a deliberately simplified approximation, not a real ShakeMap or region-calibrated GMICE.** It's loosely shaped like published intensity-attenuation relations (magnitude up, log-distance down), with hand-picked coefficients tuned only to feel reasonable, not fit to any real region's ground-motion data.
-- **The Omori-Utsu/Gutenberg-Richter aftershock forecast is illustrative, not a real forecast.** The productivity constant and b-value are reasonable textbook defaults, not fit to any specific real aftershock sequence; real forecasting tools (e.g. USGS's own aftershock forecasts) are calibrated against the actual sequence as it unfolds.
+- **The Omori-Utsu/Gutenberg-Richter aftershock forecast is illustrative, not a real forecast.** The productivity constant (K) is still a reasonable textbook default, not fit to any specific real aftershock sequence, and that's a hard structural limit here, not a to-do: a live decision window is only ~75 real seconds, nowhere near enough of an actual sequence to fit K against (USGS's own generic model makes the same call for the same reason, before enough sequence-specific data exists). The b-value is different: `estimateBValue` is a genuine live fit (Aki 1965's maximum-likelihood method) against the real global feed, not a fixed constant, but it's still a *global* estimate pooling every region's background seismicity together, not a properly localized b-value for the specific aftershock zone the way a real regional forecast would use; real forecasting tools (e.g. USGS's own aftershock forecasts) are calibrated against the actual local sequence as it unfolds.
 - **The tectonic-region classifier is coarse.** It buckets coordinates with a handful of rectangular bounding boxes, not actual plate-boundary geometry.
 - **This is a single shared world with no authentication.** Anyone who can reach the server can spend the shared resilience budget or commit an aftershock response; there are no accounts, no per-user state, and no access control. That's a deliberate simplicity choice for a hobby project, not a production posture.
 - **World processing is lazy, not continuous.** The server ingests new quakes and finalizes aftershock windows only when `GET /api/world` is called, not via a background worker; if nobody has the app open for a while, ingestion simply catches up (correctly, since everything is computed from real timestamps) the next time someone does.
 - **The rarity score is a rough Gutenberg-Richter-style statistical estimate, not a calibrated catalog frequency.** It uses a fixed global b-value and rough global depth-band proportions, not a live-fit model of the actual current catalog.
-- **The ledger is returned in full over the API, unpaginated.** Fine at hobby-project scale; would need pagination for a long-lived deployment.
 - **The USGS feed can lag or be temporarily delayed or unavailable.** The world engine simply skips ingestion for that pass and catches up next time; it never crashes the endpoint. Reads/writes against the shared `world.json` file are also serialized through a single in-process lock (`worldStore.transact`) and written atomically (temp file + rename), so two overlapping requests (two tabs open, a dev-mode double-poll) can no longer race and corrupt the file. An earlier version of this app didn't serialize that read-modify-write cycle and could crash the whole server under concurrent load with `Unexpected end of JSON input`; that's what this guards against now.
 
 ---
@@ -272,7 +274,7 @@ Every pure/deterministic function in this codebase has a real Vitest unit test: 
 - **Real plate-boundary data**: swap the coarse bounding-box tectonic classifier for an actual plate-boundary GeoJSON dataset and a proper point-to-line-distance lookup.
 - **A background worker for world processing**, so ingestion and aftershock-window finalization happen continuously instead of only on read.
 - **Authentication and multi-operator attribution**, so the permanent ledger can record *who* made each allocation/commitment decision, not just that one was made.
-- **Ledger pagination**, so a long-running world's history doesn't mean transferring the entire ledger on every poll (the Permanent Ledger view itself already exists; see Core systems above).
+- **A properly localized b-value fit**, using only quakes actually near the current aftershock zone instead of pooling the entire global feed, once there's a sensible way to define "near" for a sequence that's often still just minutes old.
 - **A real ShakeMap-style regional GMICE**, replacing the current simplified attenuation formula with a properly region-calibrated one.
 - **Push notifications** when a live aftershock decision window opens, so the operator doesn't have to have the tab open to catch the ~75-second window.
 

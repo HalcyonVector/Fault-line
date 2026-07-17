@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useRef } from 'react';
-import type { LedgerEntry, Site } from '../types';
-import { filterLedgerBySite, sortLedgerByRecency } from '../lib/ledgerFilters';
+import { useEffect, useRef } from 'react';
+import type { Site } from '../types';
+import { useLedgerPage } from '../inputs/useLedgerPage';
 import { LedgerEntryRow } from './LedgerEntryRow';
 
 interface SiteDetailModalProps {
   site: Site;
   sites: Site[];
-  ledger: LedgerEntry[];
   nowMs: number;
   onClose: () => void;
 }
@@ -14,13 +13,13 @@ interface SiteDetailModalProps {
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
 
-export function SiteDetailModal({ site, sites, ledger, nowMs, onClose }: SiteDetailModalProps) {
+export function SiteDetailModal({ site, sites, nowMs, onClose }: SiteDetailModalProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  const entries = useMemo(() => sortLedgerByRecency(filterLedgerBySite(ledger, site.id)), [ledger, site.id]);
+  const { entries, hasMore, totalMatching, loading, loadMore } = useLedgerPage(site.id);
 
   // Focus restoration lives here, not in an effect cleanup: an effect's
   // cleanup runs on every dependency change (including React 18 StrictMode's
@@ -113,12 +112,17 @@ export function SiteDetailModal({ site, sites, ledger, nowMs, onClose }: SiteDet
         </p>
         {site.note && <p className="site-detail-note site-detail-note-secondary">{site.note}</p>}
 
-        <h3 className="site-detail-history-heading">History ({entries.length})</h3>
+        <h3 className="site-detail-history-heading">History ({totalMatching})</h3>
         <div className="site-detail-history">
-          {entries.length === 0 && <p className="ledger-empty">No real quakes have hit this site yet.</p>}
+          {entries.length === 0 && !loading && <p className="ledger-empty">No real quakes have hit this site yet.</p>}
           {entries.map((entry) => (
             <LedgerEntryRow key={entry.id} entry={entry} sites={sites} nowMs={nowMs} />
           ))}
+          {hasMore && (
+            <button type="button" className="ledger-load-more" onClick={loadMore} disabled={loading}>
+              {loading ? 'Loading...' : 'Load more'}
+            </button>
+          )}
         </div>
       </div>
     </div>

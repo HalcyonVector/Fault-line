@@ -3,7 +3,7 @@ import { useQuakeFeed } from './inputs/useQuakeFeed';
 import { useWorldState } from './inputs/useWorldState';
 import { unrestIndex } from './seismology/unrestIndex';
 import { classifyTectonicRegion } from './seismology/tectonicRegion';
-import { OMORI_CONSTANTS } from './seismology/omoriAftershocks';
+import { OMORI_CONSTANTS, estimateBValue } from './seismology/omoriAftershocks';
 import { accumulateRegionEnergy, dominantRegion } from './seismology/regionDominance';
 import { ThreatBoard } from './components/ThreatBoard';
 import { SiteGrid } from './components/SiteGrid';
@@ -62,6 +62,16 @@ export default function App() {
   );
   const regionEnergy = useMemo(() => accumulateRegionEnergy(regionEvents, nowMs), [regionEvents, nowMs]);
   const dominant = useMemo(() => dominantRegion(regionEnergy), [regionEnergy]);
+
+  // Fed into the aftershock forecast's Gutenberg-Richter term instead of a
+  // fixed constant: a genuine live fit (Aki 1965's MLE estimator) against
+  // whatever's actually streaming in through the global feed right now,
+  // falling back to the textbook default (null here) until there's enough
+  // data to trust the estimate.
+  const liveBValue = useMemo(
+    () => estimateBValue(quakes.map((q) => q.mag), OMORI_CONSTANTS.REFERENCE_MAGNITUDE),
+    [quakes],
+  );
 
   const recentQuakes = useMemo(() => quakes.slice(0, 300), [quakes]);
 
@@ -168,7 +178,7 @@ export default function App() {
           className={`ops-tab${view === 'ledger' ? ' ops-tab-active' : ''}`}
           onClick={() => setView('ledger')}
         >
-          Permanent Ledger{world ? ` (${world.ledger.length})` : ''}
+          Permanent Ledger{world ? ` (${world.ledgerCount})` : ''}
         </button>
       </nav>
 
@@ -194,6 +204,7 @@ export default function App() {
                 budget={world.budget.value}
                 onCommit={handleCommit}
                 committing={committing}
+                liveBValue={liveBValue}
               />
               <SiteGrid
                 sites={world.sites}
@@ -213,7 +224,7 @@ export default function App() {
 
       {view === 'ledger' && world && (
         <main className="ops-grid ops-grid-single">
-          <LedgerView sites={world.sites} ledger={world.ledger} nowMs={nowMs} />
+          <LedgerView sites={world.sites} nowMs={nowMs} />
         </main>
       )}
 
@@ -225,7 +236,6 @@ export default function App() {
             <SiteDetailModal
               site={site}
               sites={world.sites}
-              ledger={world.ledger}
               nowMs={nowMs}
               onClose={closeSiteDetail}
             />

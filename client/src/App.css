@@ -33,6 +33,35 @@
   box-sizing: border-box;
 }
 
+/* Themed scrollbars for every internally-scrolling panel (Site Status,
+   Intelligence Feed, the console's standby/active states): the default OS
+   scrollbar is light grey/white, which stands out sharply against this
+   dark warm palette. `scrollbar-color`/`scrollbar-width` cover Firefox; the
+   `::-webkit-scrollbar*` pseudo-elements cover Chrome/Edge/Safari. */
+* {
+  scrollbar-color: var(--ochre-dim) var(--panel-bg);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--panel-bg);
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--ochre-dim);
+  border-radius: 6px;
+  border: 2px solid var(--panel-bg);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ochre);
+}
+
 .ops-app {
   position: relative;
   /* A definite height (not just a min-height floor) so the .ops-grid ->

@@ -37,12 +37,15 @@ The live feed is real. Every quake it reports is checked against every site's re
 4. **Omori-Utsu + Gutenberg-Richter aftershock decision window**: when a live mainshock crosses M6 (or a high USGS `sig`), a ~75-second real-time decision window opens. `client/src/seismology/omoriAftershocks.ts` computes a live, continuously-updating probability of a damaging aftershock by integrating the real Omori-Utsu decay law over a forecast horizon and combining it with the Gutenberg-Richter magnitude-frequency relation (a simplified Reasenberg-Jones-style combination). You can commit available resilience budget to a site's emergency response before the window closes; whatever you decide (or don't) locks permanently into the ledger.
 5. **Seismic-gap overdue-pressure gauge** (`server/src/lib/overduePressure.js`): (years since last major rupture) / (recurrence interval) for every site, shown continuously. This is purely informational; it never triggers anything itself, since there's no simulated RNG in the core loop. It exists so you can strategically pre-invest resilience in a site that's statistically overdue even though nothing has happened there yet.
 6. **Global intelligence log with rarity scoring** (`client/src/seismology/rarityScore.ts`): every real quake globally (not just ones touching your sites) streams into a scrolling log, each tagged with an objective rarity score from real magnitude/depth frequency relationships (bigger and/or anomalously deep events score higher, via a Gutenberg-Richter-style magnitude multiplier and a global depth-band frequency multiplier) plus a small deterministic glyph (`client/src/seismology/glyph.ts`) generated from the event's own stats.
+7. **Permanent Ledger view**: a second tab (alongside the main Operations dashboard) listing every ledger entry ever written, newest first, filterable by site (`client/src/components/LedgerView.tsx`, `client/src/lib/ledgerFilters.ts`). This is where the "permanent, unresettable" premise actually becomes something you can browse, not just a claim about the API response.
+8. **Site history drill-down**: a "History" button on each site card opens a modal (`client/src/components/SiteDetailModal.tsx`) with that site's full stats plus its own filtered ledger entries. A real modal with a real focus trap (Tab/Shift+Tab cycle inside it, Escape closes, focus returns to whatever opened it).
+9. **Most-overdue callout** (`client/src/lib/overdueRanking.ts`): the Site Status header surfaces whichever site currently has the highest seismic-gap pressure, clickable to jump straight to it on the map, so you don't have to compare six cards by eye.
 
 ---
 
 ## UI Direction: Sci-Fi Operations Command
 
-This is a deliberate departure from both [Petrichor](../Petrichor)'s and a planned sibling "ISS orbital drone" project's visual language: a single full-viewport ambient world map with a soft glassmorphism card floating over it. Fault Line instead reads as a **NORAD/mission-control HUD**: multiple panels simultaneously visible at all times (a global threat-board map, a site-status grid, a scrolling intelligence log, and an aftershock decision console that visibly lights up only when a window is open); nothing is hidden behind a single icon that reveals a slide-out drawer. Cool cyan/electric-blue lines on near-black, monospace type, scanlines and a radar-sweep motif on the threat board, sharp panel edges rather than rounded glass cards, and a glitch-style flash when a new event lands in the intelligence log.
+This is a deliberate departure from both [Petrichor](../Petrichor)'s and a planned sibling "ISS orbital drone" project's visual language: a single full-viewport ambient world map with a soft glassmorphism card floating over it. Fault Line instead reads as a **NORAD/mission-control HUD**: multiple panels simultaneously visible at all times (a global threat-board map, a site-status grid, a scrolling intelligence log, and an aftershock decision console that visibly lights up only when a window is open); nothing is hidden behind a single icon that reveals a slide-out drawer. Warm ochre/amber lines on a warm near-black (this is an earth-science project, not a sci-fi bridge, so the palette leans brown/earth-toned rather than the cooler cyan the first pass of this UI shipped with), monospace type, a radar-sweep motif on the threat board, sharp panel edges rather than rounded glass cards, and a glitch-style flash when a new event lands in the intelligence log.
 
 ---
 
@@ -166,18 +169,23 @@ fault-line/
         │   └── glyph.ts              # deterministic per-event waveform glyph
         ├── map/
         │   ├── projection.ts         # equirectangular projection (pure), reused by the threat board
-        │   ├── panZoom.ts            # pure screen<->world fit/zoom/pan-clamp math (contain-fit, zoom-around-cursor, pan clamping)
+        │   ├── panZoom.ts            # pure screen<->world fit/zoom/pan-clamp math (cover-fit, always fills the panel, crops overflow rather than letterboxing, zoom-around-cursor, pan clamping)
         │   └── dragState.ts          # pure drag-state reducer: distinguishes a click from a pan/drag release
         ├── inputs/
         │   ├── useQuakeFeed.ts       # polls the server's USGS proxy
         │   └── useWorldState.ts      # polls the shared server world/ledger state
         ├── lib/
-        │   └── formatTime.ts         # clock + "time ago" formatting
+        │   ├── formatTime.ts         # clock + "time ago" formatting
+        │   ├── ledgerFilters.ts      # site-agnostic ledger filtering across both entry shapes, recency sort
+        │   └── overdueRanking.ts     # rank/pick sites by overdue pressure
         └── components/
             ├── ThreatBoard.tsx       # tactical world map: land silhouette, sites, recent quakes, radar sweep; draggable to pan, scroll/pinch to zoom, fits any panel size without distorting geography
-            ├── SiteGrid.tsx          # one tile per site: resilience/health/overdue gauges + allocate control
+            ├── SiteGrid.tsx          # one tile per site: resilience/health/overdue gauges + allocate control + most-overdue callout
             ├── IntelLog.tsx          # scrolling global event log with rarity + glyph
-            ├── AftershockConsole.tsx # lights up only while a decision window is open
+            ├── AftershockConsole.tsx # full-width banner, lights up only while a decision window is open
+            ├── LedgerView.tsx        # Permanent Ledger tab: every entry, filterable by site
+            ├── LedgerEntryRow.tsx    # shared per-entry-type rendering (used by LedgerView and SiteDetailModal)
+            ├── SiteDetailModal.tsx   # site history drill-down; a real modal with a real focus trap
             └── ErrorBoundary.tsx     # top-level render-error fallback
 ```
 
@@ -240,7 +248,7 @@ npm test --prefix server         # Vitest + Supertest: health/quakes/world route
 npm test --prefix client         # Vitest: seismology math, rarity/glyph, projection, formatTime
 ```
 
-Every pure/deterministic function in this codebase has a real Vitest unit test: the damage/attenuation model, the overdue-pressure calc, the rarity scoring, the repurposed Omori-Utsu/Gutenberg-Richter probability math, the energy/magnitude scaling, haversine distance, and the tectonic-region classifier. The world/ledger routes are covered with Supertest, with `fetch` mocked to simulate specific live-quake scenarios (a strong quake near a site, a distant weak one, a magnitude-6+ mainshock opening and later expiring an aftershock decision window) and an isolated `WORLD_DATA_FILE` per test so runs never touch real data or each other. The stateful polling hooks and DOM-heavy map/log/console rendering are exercised by manual/browser testing rather than unit tests, same testing philosophy as before: the pure math each one is built on is fully unit-tested even though the rendering shell isn't.
+Every pure/deterministic function in this codebase has a real Vitest unit test: the damage/attenuation model, the overdue-pressure calc, the rarity scoring, the repurposed Omori-Utsu/Gutenberg-Richter probability math, the energy/magnitude scaling, haversine distance, the tectonic-region classifier, the equirectangular projection and pan/zoom/drag-state math behind the threat board's map, and the ledger-filtering/overdue-ranking logic behind the Permanent Ledger view and the most-overdue callout. The world/ledger routes are covered with Supertest, with `fetch` mocked to simulate specific live-quake scenarios (a strong quake near a site, a distant weak one, a magnitude-6+ mainshock opening and later expiring an aftershock decision window, a burst of concurrent requests) and an isolated `WORLD_DATA_FILE` per test so runs never touch real data or each other. The stateful polling hooks and DOM-heavy map/log/console rendering are exercised by manual/browser testing rather than unit tests, same testing philosophy as before: the pure math each one is built on is fully unit-tested even though the rendering shell isn't.
 
 ---
 
@@ -264,7 +272,7 @@ Every pure/deterministic function in this codebase has a real Vitest unit test: 
 - **Real plate-boundary data**: swap the coarse bounding-box tectonic classifier for an actual plate-boundary GeoJSON dataset and a proper point-to-line-distance lookup.
 - **A background worker for world processing**, so ingestion and aftershock-window finalization happen continuously instead of only on read.
 - **Authentication and multi-operator attribution**, so the permanent ledger can record *who* made each allocation/commitment decision, not just that one was made.
-- **Ledger pagination and a dedicated history/replay view**, for browsing the full permanent record of a long-running world.
+- **Ledger pagination**, so a long-running world's history doesn't mean transferring the entire ledger on every poll (the Permanent Ledger view itself already exists; see Core systems above).
 - **A real ShakeMap-style regional GMICE**, replacing the current simplified attenuation formula with a properly region-calibrated one.
 - **Push notifications** when a live aftershock decision window opens, so the operator doesn't have to have the tab open to catch the ~75-second window.
 

@@ -9,8 +9,12 @@ import { ThreatBoard } from './components/ThreatBoard';
 import { SiteGrid } from './components/SiteGrid';
 import { IntelLog } from './components/IntelLog';
 import { AftershockConsole } from './components/AftershockConsole';
+import { LedgerView } from './components/LedgerView';
+import { SiteDetailModal } from './components/SiteDetailModal';
 import type { TectonicRegion } from './types';
 import './App.css';
+
+type OpsView = 'operations' | 'ledger';
 
 const REGION_LABEL: Record<TectonicRegion, string> = {
   'ring-of-fire': 'Ring of Fire',
@@ -28,6 +32,16 @@ export default function App() {
   const [committing, setCommitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [lastAllocation, setLastAllocation] = useState<{ siteId: string; amount: number } | null>(null);
+  const [view, setView] = useState<OpsView>('operations');
+  const [siteDetailId, setSiteDetailId] = useState<string | null>(null);
+  // Stable reference on purpose: SiteDetailModal's focus trap depends on
+  // `onClose` in a useEffect, and App re-renders every second (the nowMs
+  // ticker); an inline arrow function here would give that effect a new
+  // dependency every render, tearing down and re-running the whole focus
+  // trap (re-capturing "previously focused" and re-stealing focus into the
+  // dialog) once a second while the modal is open, corrupting the eventual
+  // focus-restore on close.
+  const closeSiteDetail = useCallback(() => setSiteDetailId(null), []);
 
   // Ticks once a second so real-time-decayed signals (global activity level,
   // aftershock countdown/probability) stay live even between polls.
@@ -141,41 +155,83 @@ export default function App() {
         </div>
       </header>
 
+      <nav className="ops-tabs" aria-label="Primary view">
+        <button
+          type="button"
+          className={`ops-tab${view === 'operations' ? ' ops-tab-active' : ''}`}
+          onClick={() => setView('operations')}
+        >
+          Operations
+        </button>
+        <button
+          type="button"
+          className={`ops-tab${view === 'ledger' ? ' ops-tab-active' : ''}`}
+          onClick={() => setView('ledger')}
+        >
+          Permanent Ledger{world ? ` (${world.ledger.length})` : ''}
+        </button>
+      </nav>
+
       {(quakesError || worldError || actionError) && (
         <div className="ops-error-bar" role="alert">
           {actionError ?? worldError ?? quakesError}
         </div>
       )}
 
-      <main className="ops-grid">
-        {world && (
-          <>
-            <ThreatBoard
+      {view === 'operations' && (
+        <main className="ops-grid">
+          {world && (
+            <>
+              <ThreatBoard
+                sites={world.sites}
+                recentQuakes={recentQuakes}
+                onSelectSite={setSelectedSiteId}
+                selectedSiteId={selectedSiteId}
+              />
+              <AftershockConsole
+                window={world.activeAftershockWindow}
+                sites={world.sites}
+                budget={world.budget.value}
+                onCommit={handleCommit}
+                committing={committing}
+              />
+              <SiteGrid
+                sites={world.sites}
+                budget={world.budget.value}
+                onAllocate={handleAllocate}
+                allocating={allocating}
+                lastAllocation={lastAllocation}
+                selectedSiteId={selectedSiteId}
+                onSelectSite={setSelectedSiteId}
+                onViewHistory={setSiteDetailId}
+              />
+            </>
+          )}
+          <IntelLog quakes={quakes} nowMs={nowMs} />
+        </main>
+      )}
+
+      {view === 'ledger' && world && (
+        <main className="ops-grid ops-grid-single">
+          <LedgerView sites={world.sites} ledger={world.ledger} nowMs={nowMs} />
+        </main>
+      )}
+
+      {siteDetailId && world && (
+        (() => {
+          const site = world.sites.find((s) => s.id === siteDetailId);
+          if (!site) return null;
+          return (
+            <SiteDetailModal
+              site={site}
               sites={world.sites}
-              recentQuakes={recentQuakes}
-              onSelectSite={setSelectedSiteId}
-              selectedSiteId={selectedSiteId}
+              ledger={world.ledger}
+              nowMs={nowMs}
+              onClose={closeSiteDetail}
             />
-            <AftershockConsole
-              window={world.activeAftershockWindow}
-              sites={world.sites}
-              budget={world.budget.value}
-              onCommit={handleCommit}
-              committing={committing}
-            />
-            <SiteGrid
-              sites={world.sites}
-              budget={world.budget.value}
-              onAllocate={handleAllocate}
-              allocating={allocating}
-              lastAllocation={lastAllocation}
-              selectedSiteId={selectedSiteId}
-              onSelectSite={setSelectedSiteId}
-            />
-          </>
-        )}
-        <IntelLog quakes={quakes} nowMs={nowMs} />
-      </main>
+          );
+        })()
+      )}
     </div>
   );
 }

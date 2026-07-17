@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Site } from '../types';
+import { mostOverdueSite } from '../lib/overdueRanking';
 
 interface SiteGridProps {
   sites: Site[];
@@ -9,6 +10,7 @@ interface SiteGridProps {
   lastAllocation?: { siteId: string; amount: number } | null;
   selectedSiteId?: string | null;
   onSelectSite?: (siteId: string) => void;
+  onViewHistory?: (siteId: string) => void;
 }
 
 function Gauge({ label, value, max = 100, tone }: { label: string; value: number; max?: number; tone: 'ochre' | 'warn' | 'danger' | 'pressure' }) {
@@ -40,16 +42,30 @@ export function SiteGrid({
   lastAllocation,
   selectedSiteId,
   onSelectSite,
+  onViewHistory,
 }: SiteGridProps) {
   const [amounts, setAmounts] = useState<Record<string, number>>({});
 
   const amountFor = (siteId: string) => amounts[siteId] ?? 5;
+  const mostOverdue = mostOverdueSite(sites);
 
   return (
     <section className="panel site-grid" aria-label="Site status grid">
       <header className="panel-head">
         <span className="panel-title">Site Status</span>
-        <span className="panel-sub">Resilience budget available: {budget.toFixed(1)}</span>
+        <div className="site-grid-head-readouts">
+          {mostOverdue && (
+            <button
+              type="button"
+              className="site-grid-most-overdue"
+              onClick={() => onSelectSite?.(mostOverdue.id)}
+              title="Jump to the most statistically-overdue site"
+            >
+              Most overdue: {mostOverdue.name} ({Math.round(mostOverdue.overduePressure.clamped * 100)}%)
+            </button>
+          )}
+          <span className="panel-sub">Resilience budget available: {budget.toFixed(1)}</span>
+        </div>
       </header>
       <div className="site-grid-tiles">
         {sites.map((site) => {
@@ -105,6 +121,18 @@ export function SiteGrid({
                   >
                     {allocating === site.id ? 'Allocating...' : 'Allocate'}
                   </button>
+                  {onViewHistory && (
+                    <button
+                      type="button"
+                      className="site-tile-history-button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onViewHistory(site.id);
+                      }}
+                    >
+                      History
+                    </button>
+                  )}
                 </div>
 
                 {lastAllocation?.siteId === site.id && (

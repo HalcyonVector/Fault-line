@@ -163,6 +163,38 @@
   font-size: 12px;
 }
 
+/* ---------- Primary view tabs ---------- */
+
+.ops-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 20px;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--line);
+}
+
+.ops-tab {
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.ops-tab:hover {
+  color: var(--text);
+}
+
+.ops-tab-active {
+  color: var(--ochre);
+  border-bottom-color: var(--ochre);
+}
+
 /* ---------- Grid layout ---------- */
 
 .ops-grid {
@@ -214,6 +246,13 @@
       'sites'
       'intel';
   }
+}
+
+/* A single full-bleed panel (the Permanent Ledger), replacing the
+   multi-area operations layout rather than trying to fit inside it. */
+.ops-grid-single {
+  display: flex;
+  padding: 14px;
 }
 
 /* ---------- Shared panel chrome ---------- */
@@ -987,4 +1026,252 @@ button:disabled {
 .error-fallback-title {
   color: var(--danger);
   font-weight: 700;
+}
+
+/* ---------- Site grid header extras (most-overdue callout) ---------- */
+
+.site-grid-head-readouts {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.site-grid-most-overdue {
+  background: rgba(255, 154, 61, 0.1);
+  border: 1px solid var(--pressure);
+  color: var(--pressure);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.site-grid-most-overdue:hover {
+  background: rgba(255, 154, 61, 0.2);
+}
+
+.site-tile-history-button {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+}
+
+.site-tile-history-button:hover {
+  color: var(--ochre);
+  border-color: var(--ochre-dim);
+}
+
+/* ---------- Permanent Ledger view ---------- */
+
+.ledger-view {
+  flex: 1;
+  min-width: 0;
+}
+
+.ledger-controls {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ledger-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.ledger-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+}
+
+.ledger-empty {
+  padding: 20px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.ledger-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid rgba(224, 160, 74, 0.12);
+  background: var(--panel-bg-raised);
+}
+
+.ledger-entry-badge {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 6px;
+  border: 1px solid currentColor;
+}
+
+.ledger-entry-badge-impact {
+  color: var(--danger);
+}
+
+.ledger-entry-badge-window {
+  color: var(--pressure);
+}
+
+.ledger-entry-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ledger-entry-title {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text);
+}
+
+.ledger-entry-detail {
+  margin: 0;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.ledger-entry-time {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* ---------- Site detail modal ---------- */
+
+.site-detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(5, 3, 1, 0.72);
+}
+
+.site-detail-dialog {
+  width: min(720px, 100%);
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  border: 1px solid var(--ochre-dim);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.site-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.site-detail-title {
+  margin: 0;
+  font-size: 16px;
+  color: var(--ochre);
+}
+
+.site-detail-subtitle {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.site-detail-close {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text);
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+}
+
+.site-detail-close:hover {
+  border-color: var(--ochre);
+  color: var(--ochre);
+}
+
+.site-detail-stats {
+  display: flex;
+  gap: 24px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.site-detail-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.site-detail-stat-label {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.site-detail-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ochre);
+}
+
+.site-detail-note {
+  margin: 0;
+  padding: 10px 20px 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.site-detail-note-secondary {
+  padding-top: 4px;
+  font-style: italic;
+}
+
+.site-detail-history-heading {
+  margin: 14px 20px 4px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.site-detail-history {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 20px 20px;
 }

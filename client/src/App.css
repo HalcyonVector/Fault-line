@@ -51,7 +51,7 @@
   background:
     repeating-linear-gradient(0deg, var(--bg-grid) 0px, var(--bg-grid) 1px, transparent 1px, transparent 32px),
     repeating-linear-gradient(90deg, var(--bg-grid) 0px, var(--bg-grid) 1px, transparent 1px, transparent 32px),
-    radial-gradient(120% 100% at 50% 0%, #08161a 0%, var(--bg) 65%);
+    radial-gradient(120% 100% at 50% 0%, #241a10 0%, var(--bg) 65%);
   color: var(--text);
   font-family: var(--mono);
 }
@@ -92,7 +92,9 @@
 
 .ops-hud-readouts {
   display: flex;
+  align-items: stretch;
   gap: 18px;
+  flex-wrap: wrap;
 }
 
 .ops-hud-field {
@@ -103,6 +105,12 @@
   padding: 4px 10px;
   border: 1px solid var(--line);
   background: var(--panel-bg);
+}
+
+.ops-hud-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--line);
 }
 
 .ops-hud-label {
@@ -280,7 +288,7 @@
   justify-content: center;
   font-size: 14px;
   line-height: 1;
-  background: rgba(7, 16, 20, 0.85);
+  background: rgba(20, 14, 8, 0.85);
   color: var(--ochre);
   border: 1px solid var(--line);
 }
@@ -374,9 +382,15 @@
 
 .site-tile {
   position: relative;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--ochre-dim);
-  background: linear-gradient(180deg, var(--panel-bg-raised), rgba(10, 22, 26, 0.55));
+  /* A visibly lighter, warmer card than the panel it sits in (previous
+     values were close enough in both hue and luminosity to the surrounding
+     .site-grid background that the cards barely read as distinct elements),
+     plus a stronger border and a real drop shadow so each card reads as a
+     raised block instead of a faint outline. */
+  border: 1px solid rgba(224, 160, 74, 0.45);
+  border-left: 3px solid var(--ochre);
+  background: linear-gradient(180deg, #2c2216, #201808);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
   padding: 12px 14px;
   cursor: pointer;
   display: flex;
@@ -695,37 +709,6 @@
   font-size: 11px;
   color: var(--text-dim);
   line-height: 1.6;
-}
-
-.aftershock-standby-criteria {
-  flex-shrink: 0;
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding-left: 24px;
-  border-left: 1px solid var(--line);
-}
-
-.aftershock-criterion {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 100px;
-}
-
-.aftershock-criterion-label {
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-
-.aftershock-criterion-value {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--ochre);
 }
 
 .aftershock-body {

@@ -3,6 +3,7 @@ import { useQuakeFeed } from './inputs/useQuakeFeed';
 import { useWorldState } from './inputs/useWorldState';
 import { unrestIndex } from './seismology/unrestIndex';
 import { classifyTectonicRegion } from './seismology/tectonicRegion';
+import { OMORI_CONSTANTS } from './seismology/omoriAftershocks';
 import { accumulateRegionEnergy, dominantRegion } from './seismology/regionDominance';
 import { ThreatBoard } from './components/ThreatBoard';
 import { SiteGrid } from './components/SiteGrid';
@@ -123,6 +124,19 @@ export default function App() {
           <div className="ops-hud-field">
             <span className="ops-hud-label">Resilience Budget</span>
             <span className="ops-hud-value">{world ? world.budget.value.toFixed(1) : 'N/A'}</span>
+          </div>
+          <div className="ops-hud-divider" aria-hidden="true" />
+          <div className="ops-hud-field">
+            <span className="ops-hud-label">Trigger Magnitude</span>
+            <span className="ops-hud-value">M{OMORI_CONSTANTS.MIN_MAGNITUDE_FOR_WINDOW.toFixed(1)}+</span>
+          </div>
+          <div className="ops-hud-field">
+            <span className="ops-hud-label">or USGS Significance</span>
+            <span className="ops-hud-value">&ge;{OMORI_CONSTANTS.MIN_SIG_FOR_WINDOW}</span>
+          </div>
+          <div className="ops-hud-field">
+            <span className="ops-hud-label">Decision Window</span>
+            <span className="ops-hud-value">~60-90s</span>
           </div>
         </div>
       </header>

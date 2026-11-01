@@ -6,7 +6,10 @@ export function formatRelativeTime(timeMs: number, nowMs: number = Date.now()): 
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 60) return `${days}d ago`;
+  if (days < 730) return `${Math.floor(seconds / (30.44 * 86_400))}mo ago`;
+  return `${Math.floor(seconds / (365.25 * 86_400))}y ago`;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');

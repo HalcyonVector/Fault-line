@@ -4,6 +4,7 @@ import compression from 'compression';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import quakesRouter from './routes/quakes.js';
+import archiveRouter from './routes/archive.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_DIST = path.join(__dirname, '..', '..', 'client', 'dist');
@@ -16,6 +17,7 @@ export function createApp() {
   app.use(compression());
 
   app.use('/api/quakes', quakesRouter);
+  app.use('/api/archive', archiveRouter);
   app.get('/api/health', (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
   app.use('/api', (_req, res) => res.status(404).json({ error: 'not_found' }));
 

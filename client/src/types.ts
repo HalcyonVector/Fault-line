@@ -62,3 +62,17 @@ export interface AlertSettings {
   /** Notify when the estimated intensity at your location reaches this MMI. */
   nearMinMmi: number;
 }
+
+/** USGS ShakeMap contours and "Did You Feel It?" cells for one event, from GET /api/quakes/:id/observed. */
+export interface ObservedShaking {
+  eventId: string;
+  shakemap: { maxMmi: number | null; contours: { mmi: number; lines: [number, number][][] }[]; url: string | null } | null;
+  dyfi: {
+    maxCdi: number | null;
+    responses: number | null;
+    cells: { cdi: number; responses: number; distanceKm: number | null; ring: [number, number][] }[];
+    url: string | null;
+  } | null;
+}
+
+export type ShakingSource = 'estimate' | 'shakemap' | 'dyfi';

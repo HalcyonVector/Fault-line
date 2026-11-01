@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { haversineKm, bearingDeg, compassPoint } from './geo';
+import { haversineKm, bearingDeg, compassPoint, pointInRing } from './geo';
 
 describe('geo', () => {
   it('haversine: London to Paris is ~344 km', () => {
@@ -18,5 +18,14 @@ describe('geo', () => {
     expect(compassPoint(359)).toBe('N');
     expect(compassPoint(22.5)).toBe('NNE');
     expect(compassPoint(225)).toBe('SW');
+  });
+});
+
+describe('pointInRing', () => {
+  const square: [number, number][] = [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]];
+  it('detects inside and outside', () => {
+    expect(pointInRing(0.5, 0.5, square)).toBe(true);
+    expect(pointInRing(1.5, 0.5, square)).toBe(false);
+    expect(pointInRing(-0.1, 0.5, square)).toBe(false);
   });
 });

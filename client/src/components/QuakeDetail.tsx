@@ -7,16 +7,22 @@ import { estimateMmi, mmiRoman, mmiShaking, mmiDamage, radiusForMmi } from '../s
 import { forecastTable, summarizeSequence } from '../seismology/aftershocks';
 import { magnitudeToJoules, joulesToTonsTnt, formatTnt, depthBand } from '../seismology/stats';
 import { mmiColor, PLATE_COLORS } from '../map/colors';
-import type { Quake, UserLocation } from '../types';
+import type { ObservedShaking, Quake, ShakingSource, UserLocation } from '../types';
+import { pointInRing } from '../lib/geo';
 
 interface Props {
   quake: Quake;
   catalog: Quake[];
+  /** How to refer to the loaded events, e.g. "this feed" or "these results". */
+  catalogLabel?: string;
   nowMs: number;
   location: UserLocation | null;
   impacts: CityImpact[];
   showShaking: boolean;
   onToggleShaking: () => void;
+  source: ShakingSource;
+  onSource: (s: ShakingSource) => void;
+  observed: { data: ObservedShaking | null; loading: boolean; error: string | null };
   onSelect: (id: string) => void;
   onClose: () => void;
 }
@@ -31,10 +37,11 @@ function MmiChip({ mmi }: { mmi: number }) {
 
 const DEPTH_TEXT = { shallow: 'Shallow', intermediate: 'Intermediate', deep: 'Deep' } as const;
 
-export function QuakeDetail({ quake: q, catalog, nowMs, location, impacts, showShaking, onToggleShaking, onSelect, onClose }: Props) {
+export function QuakeDetail({ quake: q, catalog, catalogLabel = 'this feed', nowMs, location, impacts, showShaking, onToggleShaking, source, onSource, observed, onSelect, onClose }: Props) {
   const [copied, setCopied] = useState(false);
   const sequence = useMemo(() => summarizeSequence(q, catalog), [q, catalog]);
-  const forecast = useMemo(() => (q.time && q.mag >= 4 ? forecastTable(q.mag, q.time, nowMs) : null), [q, nowMs]);
+  const recent = q.time !== null && nowMs - q.time < 365 * 86_400_000;
+  const forecast = useMemo(() => (q.time && recent && q.mag >= 4 ? forecastTable(q.mag, q.time, nowMs) : null), [q, nowMs, recent]);
   const rank = useMemo(() => catalog.filter((o) => o.mag > q.mag).length + 1, [catalog, q]);
   const strongKm = radiusForMmi(q.mag, q.depthKm, 6);
   const feltKm = radiusForMmi(q.mag, q.depthKm, 4);
@@ -55,6 +62,8 @@ export function QuakeDetail({ quake: q, catalog, nowMs, location, impacts, showS
       /* clipboard blocked: nothing useful to do */
     }
   };
+
+  const reportedAt = (lon: number, lat: number) => observed.data?.dyfi?.cells.find((cell) => pointInRing(lon, lat, cell.ring)) ?? null;
 
   const plate = q.plate;
   return (
@@ -183,32 +192,81 @@ export function QuakeDetail({ quake: q, catalog, nowMs, location, impacts, showS
 
       <section className="card">
         <header>
-          <h3>Estimated shaking</h3>
+          <h3>Shaking</h3>
           <button type="button" className="chip" aria-pressed={showShaking} onClick={onToggleShaking}>
             {showShaking ? 'On map' : 'Show on map'}
           </button>
         </header>
-        <p className="shaking-summary">
-          Up to <MmiChip mmi={epicentreMmi} /> {mmiShaking(epicentreMmi).toLowerCase()} near the epicentre.{' '}
-          {strongKm > 0 ? `Strong shaking (VI+) out to about ${formatKm(strongKm)}; ` : ''}
-          {feltKm > 0 ? `light shaking (IV+) out to about ${formatKm(feltKm)}.` : 'Too small or deep for light shaking (IV) anywhere.'}
-        </p>
+        <div className="seg seg-sm seg-full" role="group" aria-label="Shaking source">
+          <button type="button" aria-pressed={source === 'estimate'} onClick={() => onSource('estimate')}>Estimate</button>
+          <button type="button" aria-pressed={source === 'shakemap'} disabled={!observed.data?.shakemap} onClick={() => onSource('shakemap')}
+            title={observed.data?.shakemap ? 'USGS ShakeMap contours' : 'No ShakeMap for this event'}>
+            ShakeMap
+          </button>
+          <button type="button" aria-pressed={source === 'dyfi'} disabled={!observed.data?.dyfi} onClick={() => onSource('dyfi')}
+            title={observed.data?.dyfi ? 'Reports from people who felt it' : 'No felt reports for this event'}>
+            Felt reports
+          </button>
+        </div>
+        {observed.loading && <p className="note">Checking USGS for ShakeMap and felt reports…</p>}
+        {observed.error && <p className="note">Couldn't load USGS products ({observed.error}).</p>}
+
+        {source === 'estimate' && (
+          <p className="shaking-summary">
+            Up to <MmiChip mmi={epicentreMmi} /> {mmiShaking(epicentreMmi).toLowerCase()} near the epicentre.{' '}
+            {strongKm > 0 ? `Strong shaking (VI+) out to about ${formatKm(strongKm)}; ` : ''}
+            {feltKm > 0 ? `light shaking (IV+) out to about ${formatKm(feltKm)}.` : 'Too small or deep for light shaking (IV) anywhere.'}
+          </p>
+        )}
+        {source === 'shakemap' && observed.data?.shakemap && (
+          <p className="shaking-summary">
+            USGS ShakeMap peak {observed.data.shakemap.maxMmi ? <MmiChip mmi={observed.data.shakemap.maxMmi} /> : '?'} against this app's estimate of{' '}
+            <MmiChip mmi={epicentreMmi} />. ShakeMap blends seismic stations, felt reports and local site conditions, so it is the better
+            picture wherever they disagree.
+          </p>
+        )}
+        {source === 'dyfi' && observed.data?.dyfi && (
+          <p className="shaking-summary">
+            {observed.data.dyfi.responses?.toLocaleString() ?? 'Some'} people reported feeling it, up to{' '}
+            {observed.data.dyfi.maxCdi ? <MmiChip mmi={observed.data.dyfi.maxCdi} /> : '?'}. Each square on the map is a 10 km cell coloured by
+            the average intensity reported there.
+          </p>
+        )}
+
         <ul className="impacts">
-          {impacts.map((c) => (
-            <li key={`${c.name}-${c.country}`}>
-              <MmiChip mmi={c.mmi} />
-              <span className="impact-name">
-                {c.name}
-                <span className="dim">, {c.country}</span>
-              </span>
-              <span className="impact-meta">
-                {formatKm(c.distanceKm)} · {formatPopulation(c.pop)}
-              </span>
-              <span className="impact-damage">{c.mmi >= 5 ? `${mmiDamage(c.mmi)} damage` : mmiShaking(c.mmi)}</span>
-            </li>
-          ))}
+          {impacts.map((c) => {
+            const reported = source === 'dyfi' ? reportedAt(c.lon, c.lat) : null;
+            return (
+              <li key={`${c.name}-${c.country}`}>
+                <MmiChip mmi={c.mmi} />
+                <span className="impact-name">
+                  {c.name}
+                  <span className="dim">, {c.country}</span>
+                </span>
+                <span className="impact-meta">
+                  {formatKm(c.distanceKm)} · {formatPopulation(c.pop)}
+                </span>
+                <span className="impact-damage">
+                  {c.mmi >= 5 ? `${mmiDamage(c.mmi)} damage` : mmiShaking(c.mmi)} estimated
+                  {reported && (
+                    <>
+                      {' · '}reported <MmiChip mmi={reported.cdi} /> <span className="dim">({reported.responses} reports)</span>
+                    </>
+                  )}
+                </span>
+              </li>
+            );
+          })}
         </ul>
-        <p className="note">Atkinson & Wald (2007) intensity estimate, not a ShakeMap. Real shaking depends on local soil and rupture details.</p>
+        <p className="note">
+          Estimates use Atkinson & Wald (2007). Observed layers come straight from USGS and can be revised for hours after a quake.
+          {observed.data?.shakemap?.url && (
+            <> <a href={observed.data.shakemap.url} target="_blank" rel="noreferrer">ShakeMap ↗</a></>
+          )}
+          {observed.data?.dyfi?.url && (
+            <> <a href={observed.data.dyfi.url} target="_blank" rel="noreferrer">Did You Feel It? ↗</a></>
+          )}
+        </p>
       </section>
 
       <section className="card">
@@ -217,7 +275,7 @@ export function QuakeDetail({ quake: q, catalog, nowMs, location, impacts, showS
           <span className="hint">zone {formatKm(sequence.zoneKm)}</span>
         </header>
         <p className="seq-observed">
-          <b>{sequence.aftershocks.length}</b> later event{sequence.aftershocks.length === 1 ? '' : 's'} in this feed within the zone
+          <b>{sequence.aftershocks.length}</b> later event{sequence.aftershocks.length === 1 ? '' : 's'} in {catalogLabel} within the zone
           {sequence.aftershocks.length > 0 && (
             <>
               , largest{' '}
@@ -259,7 +317,7 @@ export function QuakeDetail({ quake: q, catalog, nowMs, location, impacts, showS
             </p>
           </>
         ) : (
-          <p className="note">Forecasts are shown for M4 and larger.</p>
+          <p className="note">{recent ? 'Forecasts are shown for M4 and larger.' : 'Forecasts are shown for events from the past year; this sequence has long since decayed.'}</p>
         )}
       </section>
 

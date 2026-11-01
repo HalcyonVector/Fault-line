@@ -1,4 +1,4 @@
-import { useRef, type PointerEvent as ReactPointerEvent, type KeyboardEvent } from 'react';
+import { useRef, type PointerEvent as ReactPointerEvent, type KeyboardEvent, type ReactNode } from 'react';
 import type { TimeBin } from '../lib/timeline';
 import { depthColor } from '../map/colors';
 
@@ -12,12 +12,25 @@ interface Props {
   onScrub: (ms: number) => void;
   onTogglePlay: () => void;
   onLive: () => void;
+  /** Label shown when not replaying. */
+  liveLabel?: ReactNode;
+  backLabel?: string;
 }
 
+const DAY = 86_400_000;
 const fmt = (ms: number, spanMs: number) =>
-  new Date(ms).toLocaleString(undefined, spanMs > 2 * 86_400_000 ? { month: 'short', day: 'numeric', hour: '2-digit' } : { hour: '2-digit', minute: '2-digit' });
+  new Date(ms).toLocaleString(
+    undefined,
+    spanMs > 3 * 365 * DAY
+      ? { year: 'numeric' }
+      : spanMs > 90 * DAY
+        ? { month: 'short', year: 'numeric' }
+        : spanMs > 2 * DAY
+          ? { month: 'short', day: 'numeric', hour: '2-digit' }
+          : { hour: '2-digit', minute: '2-digit' },
+  );
 
-export function Timeline({ bins, startMs, endMs, cursorMs, playing, rangeLabel, onScrub, onTogglePlay, onLive }: Props) {
+export function Timeline({ bins, startMs, endMs, cursorMs, playing, rangeLabel, onScrub, onTogglePlay, onLive, liveLabel = <><i className="live-dot" /> Live</>, backLabel = 'Back to live' }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const span = Math.max(1, endMs - startMs);
@@ -63,11 +76,11 @@ export function Timeline({ bins, startMs, endMs, cursorMs, playing, rangeLabel, 
           <span>{rangeLabel}</span>
           <span className="timeline-cursor-label">
             {cursorMs === null ? (
-              <><i className="live-dot" /> Live</>
+              liveLabel
             ) : (
               <>
                 Replaying · {fmt(cursorMs, span)}{' '}
-                <button type="button" className="link" onClick={onLive}>Back to live</button>
+                <button type="button" className="link" onClick={onLive}>{backLabel}</button>
               </>
             )}
           </span>
@@ -106,7 +119,7 @@ export function Timeline({ bins, startMs, endMs, cursorMs, playing, rangeLabel, 
         <div className="timeline-axis">
           <span>{fmt(startMs, span)}</span>
           <span>{fmt(startMs + span / 2, span)}</span>
-          <span>now</span>
+          <span>{endMs > Date.now() - 2 * DAY ? 'now' : fmt(endMs, span)}</span>
         </div>
       </div>
     </div>

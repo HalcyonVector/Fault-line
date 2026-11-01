@@ -9,6 +9,9 @@ describe('format', () => {
     expect(formatRelativeTime(now - 5 * 60_000, now)).toBe('5m ago');
     expect(formatRelativeTime(now - 3 * 3_600_000, now)).toBe('3h ago');
     expect(formatRelativeTime(now - 2 * 86_400_000, now)).toBe('2d ago');
+    const later = 400 * 365.25 * 86_400_000;
+    expect(formatRelativeTime(later - 90 * 86_400_000, later)).toBe('2mo ago');
+    expect(formatRelativeTime(later - 50 * 365.25 * 86_400_000, later)).toBe('50y ago');
     expect(formatRelativeTime(now + 5000, now)).toBe('just now');
   });
   it('UTC timestamps', () => {

@@ -25,7 +25,9 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose: () => v
         <ul>
           <li><b>Circles</b> are events, sized by magnitude and colored by depth (or age). Fresh ones pulse.</li>
           <li><b>Colored lines</b> are plate boundaries from Peter Bird's PB2002 model: orange subduction zones, amber collisions, violet transforms, teal ridges and rifts.</li>
-          <li><b>Rings</b> around a selected quake are estimated shaking contours (intensity IV to VIII); the dashed ring is its aftershock zone.</li>
+          <li><b>Rings</b> around a selected quake are estimated shaking contours (intensity IV to VIII); the dashed ring is its aftershock zone. Switch to <b>ShakeMap</b> or <b>Felt reports</b> to see what USGS actually measured.</li>
+          <li><b>3D globe</b> places every event at its depth (exaggerated 3×), so deep quakes trace the slabs of subducting plates.</li>
+          <li><b>Archive</b> searches the USGS catalog back to 1900, by date, magnitude and distance from any city.</li>
         </ul>
         <h3>Keyboard</h3>
         <dl className="keys">

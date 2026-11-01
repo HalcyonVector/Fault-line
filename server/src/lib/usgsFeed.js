@@ -1,62 +1,96 @@
-// Shared USGS GeoJSON summary-feed fetch + normalize + cache, used by both
-// the /api/quakes proxy route and the world engine's quake ingestion. Pulled
-// out of routes/quakes.js so both consumers share one cache instead of each
-// hitting USGS independently.
+// USGS GeoJSON summary-feed fetch, normalize and cache.
+import { classifyPoint } from './plates.js';
 
-// USGS updates the summary feeds roughly every minute. `all_day` gives a
-// meaningful rolling window (enough quakes to feel alive) without being as
-// sparse as `all_hour` on a quiet day. See the README's "Data Source" section.
-export const FEED = process.env.USGS_FEED ?? 'all_day';
-const USGS_URL = `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/${FEED}.geojson`;
+/** The time windows the client can ask for, and the USGS summary feed behind each. */
+export const RANGES = {
+  hour: { feed: 'all_hour', ttlMs: 30_000 },
+  day: { feed: 'all_day', ttlMs: 45_000 },
+  week: { feed: 'all_week', ttlMs: 60_000 },
+  // The full all_month feed is ~10k events and several MB; M2.5+ keeps the month view light and meaningful.
+  month: { feed: '2.5_month', ttlMs: 5 * 60_000 },
+};
+export const DEFAULT_RANGE = 'day';
 
-// In-memory cache so bursty polling (from clients or the world engine) never
-// hammers USGS. A 35s TTL is comfortably below USGS's own ~60s update cadence.
-const CACHE_MS = 35 * 1000;
-let cache = null; // { expires, payload }
+const BASE_URL = (process.env.USGS_BASE_URL ?? 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary').replace(/\/$/, '');
 
-function normalizeFeature(feature) {
-  const [lon, lat, depthKm] = feature.geometry?.coordinates ?? [null, null, null];
-  const p = feature.properties ?? {};
+// Per-range cache. Entries are kept after they expire so a failed refresh can
+// fall back to the last good payload (flagged `stale`) instead of a hard error.
+const cache = new Map(); // range -> { expires, payload }
+// Plate classification is deterministic per event location, so memoize it across refreshes.
+const plateMemo = new Map();
+
+const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+export function normalizeFeature(feature) {
+  const [lon, lat, depth] = feature?.geometry?.coordinates ?? [];
+  const p = feature?.properties ?? {};
+  if (num(lon) === null || num(lat) === null || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
   return {
-    id: feature.id,
-    mag: typeof p.mag === 'number' ? p.mag : 0,
-    place: p.place ?? 'Unknown location',
-    time: p.time ?? null,
-    updated: p.updated ?? null,
-    tsunami: p.tsunami ?? 0,
-    sig: p.sig ?? 0,
+    id: String(feature.id),
+    mag: num(p.mag) ?? 0,
+    magType: p.magType ?? null,
+    place: p.place || p.title || 'Unknown location',
+    time: num(p.time),
+    updated: num(p.updated),
+    url: p.url ?? null,
+    felt: num(p.felt),
+    cdi: num(p.cdi),
+    mmi: num(p.mmi),
     alert: p.alert ?? null,
+    status: p.status ?? null,
+    tsunami: p.tsunami ? 1 : 0,
+    sig: num(p.sig) ?? 0,
+    net: p.net ?? null,
     type: p.type ?? 'earthquake',
     lon,
     lat,
-    depthKm,
+    depthKm: num(depth) ?? 0,
   };
 }
 
-/**
- * Returns `{ quakes, feed, fetchedAt, cached }`. Throws on upstream failure
- * (callers decide how to surface that: the route returns 502, the world
- * engine just skips this ingestion pass and tries again next time it's read).
- */
-export async function fetchQuakes() {
-  if (cache && cache.expires > Date.now()) {
-    return { ...cache.payload, cached: true };
+function withPlate(q) {
+  const key = `${q.lon.toFixed(2)},${q.lat.toFixed(2)}`;
+  if (!plateMemo.has(key)) {
+    if (plateMemo.size > 50_000) plateMemo.clear();
+    plateMemo.set(key, classifyPoint(q.lon, q.lat));
   }
+  return { ...q, plate: plateMemo.get(key) };
+}
 
-  const response = await fetch(USGS_URL, { signal: AbortSignal.timeout(8000) });
-  if (!response.ok) throw new Error(`USGS responded ${response.status}`);
-  const data = await response.json();
+/**
+ * Returns `{ range, feed, quakes, generatedAt, fetchedAt, cached, stale }`.
+ * Throws only when USGS fails and there is no earlier payload to fall back on.
+ */
+export async function fetchQuakes(range = DEFAULT_RANGE) {
+  const cfg = RANGES[range];
+  if (!cfg) throw Object.assign(new Error(`Unknown range "${range}"`), { status: 400 });
 
-  const quakes = (data.features ?? [])
-    .map(normalizeFeature)
-    .filter((q) => typeof q.lon === 'number' && typeof q.lat === 'number');
+  const hit = cache.get(range);
+  if (hit && hit.expires > Date.now()) return { ...hit.payload, cached: true, stale: false };
 
-  const payload = {
-    quakes,
-    feed: FEED,
-    fetchedAt: new Date().toISOString(),
-  };
-
-  cache = { expires: Date.now() + CACHE_MS, payload };
-  return { ...payload, cached: false };
+  try {
+    const response = await fetch(`${BASE_URL}/${cfg.feed}.geojson`, { signal: AbortSignal.timeout(10_000) });
+    if (!response.ok) throw new Error(`USGS responded ${response.status}`);
+    const data = await response.json();
+    const quakes = (data.features ?? [])
+      .map(normalizeFeature)
+      .filter(Boolean)
+      .map(withPlate)
+      .sort((a, b) => (b.time ?? 0) - (a.time ?? 0));
+    const payload = {
+      range,
+      feed: cfg.feed,
+      quakes,
+      generatedAt: num(data.metadata?.generated),
+      fetchedAt: new Date().toISOString(),
+    };
+    cache.set(range, { expires: Date.now() + cfg.ttlMs, payload });
+    return { ...payload, cached: false, stale: false };
+  } catch (err) {
+    if (hit) {
+      console.warn(`[usgs] ${cfg.feed} refresh failed (${err.message}); serving last good copy`);
+      return { ...hit.payload, cached: true, stale: true };
+    }
+    throw err;
+  }
 }

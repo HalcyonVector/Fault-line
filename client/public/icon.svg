@@ -1,23 +1,18 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#241d18" />
-      <stop offset="100%" stop-color="#0b0908" />
-    </linearGradient>
-    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#ff8f6b" />
-      <stop offset="55%" stop-color="#6e1f1a" />
-      <stop offset="100%" stop-color="#6e1f1a" stop-opacity="0" />
+    <radialGradient id="bg" cx="50%" cy="40%" r="75%">
+      <stop offset="0%" stop-color="#16202b" />
+      <stop offset="100%" stop-color="#080b10" />
     </radialGradient>
+    <linearGradient id="trace" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffd166" />
+      <stop offset="55%" stop-color="#ff6b35" />
+      <stop offset="100%" stop-color="#de3170" />
+    </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="104" fill="url(#bg)" />
-  <circle cx="256" cy="256" r="170" fill="url(#glow)" opacity="0.5" />
-  <path
-    d="M60 300 L150 300 L185 220 L225 360 L265 180 L305 320 L340 260 L452 260"
-    fill="none"
-    stroke="#ff8f6b"
-    stroke-width="14"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  <ellipse cx="256" cy="256" rx="190" ry="190" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="6" />
+  <ellipse cx="256" cy="256" rx="90" ry="190" fill="none" stroke="#ffffff" stroke-opacity="0.06" stroke-width="5" />
+  <path d="M66 256h48" stroke="#ffffff" stroke-opacity="0.06" stroke-width="5" />
+  <path d="M60 276 L148 276 L184 168 L232 372 L280 120 L318 312 L352 236 L452 236" fill="none" stroke="url(#trace)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" />
 </svg>

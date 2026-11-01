@@ -1,63 +1,108 @@
-# Fault Line: A Live Seismic Operations Command
+# Fault Line: Live Earthquakes on the Plates That Make Them
 
-A full-stack ops-center dashboard for a shared, persistent world: you manage a portfolio of six real cities sitting on six genuinely different real fault systems, and the **only clock driving the core loop is the live USGS Earthquake Hazards Program feed**: there is no simulated RNG anywhere in this game. When a real earthquake resolves against one of your sites, the outcome is computed from a real attenuation model and written permanently to an append-only historical ledger. It can never be undone, replayed, or reset. This is deliberately **one shared server-side world, not a per-browser session**: refreshing the page, or opening it on a different device, shows the same ongoing history, because it's tracking one real, ongoing thing, not a resettable game.
+[![CI](https://github.com/HalcyonVector/Fault-line/actions/workflows/ci.yml/badge.svg)](https://github.com/HalcyonVector/Fault-line/actions/workflows/ci.yml)
 
-Built with React, TypeScript, Express, and the live USGS GeoJSON feed, a sibling project to [Petrichor](../Petrichor), but a deliberate visual and conceptual departure from it (see "UI Direction" below).
+A live earthquake observatory. Every event the USGS has located in the last hour, day, week or month, drawn on a dark cartographic map of the tectonic plate boundaries that cause most of them. Pick any quake and it tells you which plates are involved and which one is diving under which, how strongly nearby cities probably shook, how many aftershocks have followed so far and how likely more are. Replay the whole window as an animation, set your location to see what you might feel, and get alerts when something big happens or something hits close to home.
+
+Built with React, TypeScript, d3-geo and Express on free, keyless public data (the USGS real-time feeds, Peter Bird's PB2002 plate model and Natural Earth), ready to run for $0/month on Render.
+
+> **What it's for:** keep it open in a tab to watch the planet's seismicity in real time, then click into any event to understand it the way a seismologist would read it, not just as a dot and a number.
+
+![Live map: plate boundaries, the past week of quakes, the event feed and the replay timeline](docs/screenshots/overview.png)
+
+![A selected M6.1 in Japan: estimated shaking contours, nearby cities, tectonic setting and aftershock forecast](docs/screenshots/quake-detail.png)
+
+<sub>Screenshots were captured against a recorded USGS M2.5+ week feed from late November 2024, replayed through the app locally.</sub>
 
 ---
 
 ## Disclaimer
 
-**This is not an early-warning system, a seismic hazard tool, or a safety-critical application of any kind, and it makes no claims to that effect.** The attenuation/damage model is a deliberately simplified approximation, not a real ShakeMap. The recurrence intervals and "last major rupture" years for each site are rough, rounded figures assembled from public seismology summaries for a hobby project, not authoritative hazard data, and several of them carry real, acknowledged uncertainty. Nothing in this app predicts, forecasts with any real accuracy, or provides guidance for real-world safety decisions. See "Honest Limitations" below for the specifics.
+**Fault Line is not an early-warning system, a hazard tool or a safety-critical application of any kind**, and makes no claims to that effect. Shaking intensities and aftershock probabilities come from simplified published models applied globally, so treat them as informed illustrations, not forecasts. For anything that matters, use your national seismic agency, the official tsunami warning centres and the USGS event pages linked from every quake. See Honest Limitations for the specifics.
 
 ---
 
-## The Premise
+## Findings
 
-You operate a live seismic-risk desk. Six real cities are on the board, each on a distinct real fault system:
+Real problems found while building this, and what changed:
 
-| Site | Fault System | Recurrence (rough) | Last major rupture (rough) |
-|------|--------------|---------------------|------------------------------|
-| San Francisco, USA | San Andreas Fault (transform) | ~200 years | ~1906 |
-| Tokyo, Japan | Sagami Trough / Nankai-Suruga subduction | ~200 years | ~1923 |
-| Istanbul, Turkiye | North Anatolian Fault | ~250 years | ~1766 |
-| Kathmandu, Nepal | Main Frontal Thrust (Himalayan collision) | ~500 years | ~1934 |
-| Santiago, Chile | Peru-Chile Trench (Nazca subduction) | ~150 years | ~2010 |
-| Wellington, New Zealand | Hikurangi subduction margin | ~500 years | ~1820 (least certain) |
-
-The live feed is real. Every quake it reports is checked against every site's real coordinates; a strong-enough, close-enough quake computes real damage and writes a permanent ledger entry. Nothing here waits for you, and nothing here can be replayed.
-
-### Core systems
-
-1. **Portfolio of real sites** (`server/src/lib/sites.js`): coordinates, fault-system name, recurrence interval, and last-major-rupture year for each of the six sites above.
-2. **Real attenuation damage model** (`server/src/lib/damageModel.js`): haversine distance from quake to site, a simplified MMI-like shaking-intensity estimate from magnitude/depth/distance, and damage scaled down (never to zero) by the site's current resilience. Pure, unit-tested functions.
-3. **Resilience budget with real-time regen**: a single shared budget (starts at 100, cap 100) that regenerates `+1/hour` of real wall-clock time, server-tracked (`server/src/lib/worldStore.js`, `worldEngine.js`). You spend it to raise a site's resilience (0-100), and because it only regenerates in real time, every allocation is a genuine opportunity cost.
-4. **Omori-Utsu + Gutenberg-Richter aftershock decision window**: when a live mainshock crosses M6 (or a high USGS `sig`), a ~75-second real-time decision window opens. `client/src/seismology/omoriAftershocks.ts` computes a live, continuously-updating probability of a damaging aftershock by integrating the real Omori-Utsu decay law over a forecast horizon and combining it with the Gutenberg-Richter magnitude-frequency relation (a simplified Reasenberg-Jones-style combination). The Gutenberg-Richter b-value feeding that isn't a fixed constant: `estimateBValue` fits it live, via Aki's (1965) maximum-likelihood estimator with Utsu's (1965) half-bin correction, against whatever magnitudes are actually streaming in through the global feed right now, falling back to a textbook default when there isn't yet enough qualifying data (or when the live estimate falls outside a real-world-plausible range) to trust the fit. You can commit available resilience budget to a site's emergency response before the window closes; whatever you decide (or don't) locks permanently into the ledger.
-5. **Seismic-gap overdue-pressure gauge** (`server/src/lib/overduePressure.js`): (years since last major rupture) / (recurrence interval) for every site, shown continuously. This is purely informational; it never triggers anything itself, since there's no simulated RNG in the core loop. It exists so you can strategically pre-invest resilience in a site that's statistically overdue even though nothing has happened there yet.
-6. **Global intelligence log with rarity scoring** (`client/src/seismology/rarityScore.ts`): every real quake globally (not just ones touching your sites) streams into a scrolling log, each tagged with an objective rarity score from real magnitude/depth frequency relationships (bigger and/or anomalously deep events score higher, via a Gutenberg-Richter-style magnitude multiplier and a global depth-band frequency multiplier) plus a small deterministic glyph (`client/src/seismology/glyph.ts`) generated from the event's own stats.
-7. **Permanent Ledger view**: a second tab (alongside the main Operations dashboard) paging through every ledger entry ever written, newest first, filterable by site (`client/src/components/LedgerView.tsx`, `client/src/inputs/useLedgerPage.ts`, `server/src/lib/ledgerPagination.js`). This is where the "permanent, unresettable" premise actually becomes something you can browse, not just a claim about the API response. `GET /api/world` itself only reports a `ledgerCount`; the full history is paged on demand through `GET /api/world/ledger`, cursor-based so a page never shifts under you as new entries land.
-8. **Site history drill-down**: a "History" button on each site card opens a modal (`client/src/components/SiteDetailModal.tsx`) with that site's full stats plus its own filtered ledger entries. A real modal with a real focus trap (Tab/Shift+Tab cycle inside it, Escape closes, focus returns to whatever opened it).
-9. **Most-overdue callout** (`client/src/lib/overdueRanking.ts`): the Site Status header surfaces whichever site currently has the highest seismic-gap pressure, clickable to jump straight to it on the map, so you don't have to compare six cards by eye.
+- **The global b-value came out at 0.32, which is physically implausible.** Fitting the Gutenberg-Richter slope above the completeness magnitude from maximum curvature looked textbook, but the USGS feed mixes networks: the US and a few other dense networks report quakes down to M2 and below, while most of the planet is only complete from about M4.5. Maximum curvature lands on the dense-network peak (Mc around 2.7), so the fit mixed complete and incomplete regions and dragged b far too low. Flooring the global completeness at M4.5 gives **b = 1.08 ± 0.11** on the same week of data, right where real global catalogs sit.
+- **Bird's boundary codes quietly encode subduction polarity.** PB2002 writes boundaries as `NZ\SA`, `SU/AU` or `NA-PA`. The slash direction says which plate goes under: `A\B` means A subducts beneath B, `A/B` means B subducts beneath A. Checked against ten well-known zones (Nazca under South America, Pacific under Okhotsk, Philippine Sea under Amur, Australia under Sunda, India under Burma and others) before relying on it, so the app can say "the Nazca plate diving beneath the South America plate" rather than just "subduction zone".
+- **The intensity model saturates for great earthquakes.** Atkinson & Wald (2007) grows its near-source distance term with magnitude, so an M9.5 at the epicentre comes out around intensity VII, where real great quakes reach IX or more. That is a property of the published equation, not a bug to paper over, so it is pinned in a unit test and listed under Honest Limitations.
+- **An SVG glow filter drew a visible rectangle when zoomed in.** The filter region was rasterised inside a scaled group and showed as a lighter box around big events. Large quakes now get a soft halo circle instead, which is also cheaper to render.
+- **The default view hid the Americas behind the event panel.** The map was fitted to the full window, under the floating panels. It now fits the world into the area the panels leave uncovered, and re-centres a selected quake within that area too.
+- **Fly-to zoomed far too tight.** Sizing the zoom to the light-shaking (IV) radius alone put an M6 in a view only a couple of hundred kilometres across, often pinned at maximum zoom. It now frames well over 1,000 km, so nearby cities and the boundary it sits on stay visible.
+- **"0m ago".** Events 45 to 59 seconds old were labelled "0m ago". Fixed and covered by a test.
 
 ---
 
-## UI Direction: Sci-Fi Operations Command
+## Features
 
-This is a deliberate departure from both [Petrichor](../Petrichor)'s and a planned sibling "ISS orbital drone" project's visual language: a single full-viewport ambient world map with a soft glassmorphism card floating over it. Fault Line instead reads as a **NORAD/mission-control HUD**: multiple panels simultaneously visible at all times (a global threat-board map, a site-status grid, a scrolling intelligence log, and an aftershock decision console that visibly lights up only when a window is open); nothing is hidden behind a single icon that reveals a slide-out drawer. Warm ochre/amber lines on a warm near-black (this is an earth-science project, not a sci-fi bridge, so the palette leans brown/earth-toned rather than cool blue), monospace type, a radar-sweep motif on the threat board, sharp panel edges rather than rounded glass cards, and a glitch-style flash when a new event lands in the intelligence log.
+### Live Map
+
+- **Natural Earth projection** (d3-geo) with bundled country outlines, so there is no tile server and no API key.
+- **Plate boundaries** from Peter Bird's PB2002 model, coloured by type: subduction zones, continental collisions, transform faults, and spreading ridges and rifts.
+- **Every event** as a circle sized by magnitude and coloured by depth (shallow is hot and bright, deep cools to violet) or by age. The freshest events pulse (up to the last hour); anything M5.5+ gets a halo.
+- **Drag to pan, scroll or pinch to zoom**, double-click to zoom in, and a reset button. Hovering an event shows a quick tooltip.
+- **Time windows:** past hour, day, week, or 30 days (M2.5+), with optional minimum-magnitude filtering and a toggle for non-earthquake events such as quarry blasts.
+
+### Quake Detail
+
+- **Header:** magnitude and type, place, local and UTC time, and whether a seismologist has reviewed the solution.
+- **Callouts** for USGS tsunami flags, PAGER alert levels, and sequence context: "this was a foreshock" when a larger event followed nearby, or "likely an aftershock of" when a larger one came first.
+- **Facts:** depth class, coordinates, energy as a TNT equivalent, its size rank in the window, "Did You Feel It?" report counts and ShakeMap maximum when USGS has them.
+- **Tectonic setting:** the nearest PB2002 boundary step, its type, the two plates (and which subducts beneath which), the distance to the boundary line and the relative plate speed in mm per year. Events more than 400 km from any boundary are labelled intraplate.
+- **Estimated shaking:** intensity contours (IV to VIII) drawn on the map, plus the most strongly shaken nearby cities with estimated intensity, distance and population.
+- **At your location:** estimated intensity where you are, with distance and compass direction to the epicentre.
+- **Aftershocks:** the aftershock zone (from Wells & Coppersmith rupture length) drawn as a dashed ring, how many later events in the feed fall inside it, and a Reasenberg & Jones forecast table: chance of M3+, M5+ and a larger quake over the next day, week and month, starting from now.
+- **USGS event page link** and a **copy link** button: every quake has a shareable URL (`#quake=<id>`). Opening a link to an older event widens the time window automatically until it is found.
+
+### Overview
+
+- **Tiles:** event count, total energy released (TNT equivalent), felt reports and tsunami flags.
+- **Largest event** and the share of all the window's energy it released (usually most of it).
+- **Magnitude histogram** with the completeness magnitude marked.
+- **Gutenberg-Richter plot:** log cumulative counts against magnitude, with a live maximum-likelihood b-value, its standard error, and the fitted line.
+- **Depth classes** and **tectonic setting** breakdowns, and the **busiest regions** in the window.
+
+### Replay
+
+- A **timeline strip** of event counts per bin across the window, highlighted where M4+ and M5+ events fell.
+- **Play** animates the whole window in 24 seconds, **scrub** by dragging or with the arrow keys, and **Back to live** returns to real time. The map, feed and statistics all follow the replay cursor.
+
+### Near Me and Alerts
+
+- **Set your location** from the browser or by clicking the map. It is stored only in your browser.
+- **Near me filter** for events likely felt where you are (estimated intensity II or more, or within 300 km).
+- **Alerts** for new events M6+ anywhere (adjustable from M4 to M8) and for anything estimated to reach intensity III or more at your location (adjustable). They arrive as in-app toasts and, with permission, system notifications. The first load of each window is treated as a baseline, so opening the app never fires a burst of alerts for old quakes.
+
+### PWA
+
+- Installable app shell (`manifest.webmanifest` and a small service worker that never caches `/api/*`), network-first for the HTML so a new deploy is never stuck behind a stale cache.
+
+### UI/UX: "Dark Cartographic"
+
+A full-bleed map with glass panels floating over it: a top bar with live feed status, the time window and controls; the Feed and Overview panel on the left; the quake detail panel sliding in from the right; and the replay timeline docked along the bottom. One molten-orange accent on a deep slate palette, with plate boundaries and depth colours doing the rest. Type is Manrope for the interface, Fraunces for headings and big numbers, and IBM Plex Mono for data. On phones the map sits on top, the feed scrolls below it, and quake details open as a bottom sheet.
+
+### Resilience & Accessibility
+
+- The server caches each USGS feed (30 seconds to 5 minutes depending on the window) and, if a refresh fails, keeps serving the last good copy flagged as stale; the header says so.
+- Malformed events (missing or out-of-range coordinates) are dropped server-side rather than drawn.
+- Top-level `ErrorBoundary` with a plain-language fallback and Refresh button.
+- Keyboard shortcuts (`/` search, `J`/`K` next and previous event, `Space` replay, `Esc` close), labelled controls, an accessible slider for the timeline, `aria-live` toasts, visible focus rings, and `prefers-reduced-motion` respected for every animation.
 
 ---
 
 ## Data Source
 
-Real-time GeoJSON summary feeds from the [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/): free, no API key, updated roughly every minute:
+| Source | Type | API Key? | What It Provides |
+|--------|------|----------|-------------------|
+| [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php) | GeoJSON summary feeds | No | Every located event: magnitude, depth, time, place, tsunami flag, PAGER alert, felt reports |
+| [PB2002 plate boundaries](https://github.com/fraxen/tectonicplates) (Bird 2003, GeoJSON by Hugo Ahlenius / Nordpil) | Bundled JSON | No | 5,824 boundary steps with type, plate pair and relative velocity. ODC-BY 1.0 |
+| [Natural Earth](https://www.naturalearthdata.com/) | Bundled JSON | No | 960 cities with population over 100,000, for shaking estimates. Public domain |
+| [world-atlas](https://github.com/topojson/world-atlas) | Bundled TopoJSON | No | 110m country outlines for the basemap |
 
-```
-https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/{feed}.geojson
-```
-
-The server polls `all_day` by default (`USGS_FEED` env var to override). The world engine and the `/api/quakes` proxy share one in-memory cache (`server/src/lib/usgsFeed.js`) with a 35-second TTL, comfortably under USGS's own ~60-second update cadence.
-
-**World processing happens lazily, on read** (`GET /api/world`), not via a background daemon: every time the endpoint is hit, the server regenerates the resilience budget from elapsed wall-clock time, finalizes any expired aftershock decision window into the ledger, and ingests any not-yet-seen live quakes against the site portfolio. This is simple and correct in the same sense the budget regen is: it's always computed from real time, whenever someone happens to look, but it does mean ingestion pauses while nobody is polling the app. See Honest Limitations.
+The bundled plate and city files are generated by `scripts/build-data.mjs` (`npm run data -- <download dir>`), which documents the exact upstream URLs.
 
 ---
 
@@ -65,20 +110,21 @@ The server polls `all_day` by default (`USGS_FEED` env var to override). The wor
 
 | Layer | Technology | Details |
 |-------|-----------|---------|
-| **Frontend Framework** | React 18 + TypeScript | Vite dev server + build, strict TS config, `<StrictMode>` enabled |
-| **State** | React hooks + polling | `useQuakeFeed` (global feed), `useWorldState` (shared server world); no external state library needed |
-| **Map** | `world-atlas` (land-110m TopoJSON) + `topojson-client` | Real cartography, bundled data, no external map-tile API/key, restyled as a tactical threat board, not an ambient hero |
-| **Backend Framework** | Express (Node.js, ESM) | USGS proxy + cache, world/ledger persistence + processing, static hosting |
-| **Quake Data** | USGS Earthquake Hazards Program | Free, keyless real-time GeoJSON feeds |
-| **Persistence** | Flat JSON file (`server/data/world.json`) | Single shared world, no database, no auth |
-| **Testing** | Vitest + Supertest | Pure-logic unit tests (client + server) and HTTP-level route tests (server) |
-| **Dev Orchestration** | `concurrently` + `cross-env` | Runs client + server dev servers with one `npm run dev` |
+| **Frontend Framework** | React 18 + TypeScript | Vite dev server and build, strict TS config |
+| **Map** | d3-geo + SVG | Natural Earth projection, geodesic circles clipped at the antimeridian, custom pan/zoom/pinch |
+| **Seismology** | Hand-written TypeScript | Intensity prediction, Reasenberg & Jones forecasts, b-value and completeness, rupture length, energy; no science library |
+| **Backend Framework** | Express (Node.js, ESM) | Cached USGS proxy with stale fallback, plate classification, gzip, static hosting of the built client |
+| **PWA** | Web App Manifest + Service Worker + Notifications API | Installable shell, alerts |
+| **Testing** | Vitest + Supertest | Pure-logic unit tests (client and server) and HTTP route tests |
+| **CI** | GitHub Actions | Server and client tests plus a client build on every push and PR |
+| **Hosting** | Render (free) | One web service from `render.yaml` |
+| **Dev Orchestration** | `concurrently` + `cross-env` | One `npm run dev` for both servers |
 
 ---
 
 ## Prerequisites
 
-- **Node.js 18+**: [Download here](https://nodejs.org/) (needs global `fetch`)
+- **Node.js 20+**: [Download here](https://nodejs.org/) (the server uses global `fetch` and `AbortSignal.timeout`)
 
 No API keys, no database, no Docker required.
 
@@ -87,8 +133,9 @@ No API keys, no database, no Docker required.
 ## Quick Start
 
 ```bash
-npm run install:all   # installs root, server, and client dependencies
-npm run dev            # runs API on :3002 and Vite dev server on :5274 (proxies /api)
+npm install            # root dev tools (concurrently, cross-env)
+npm run install:all    # server and client dependencies
+npm run dev            # API on :3002 and Vite dev server on :5274 (proxies /api)
 ```
 
 Open `http://localhost:5274`.
@@ -96,14 +143,26 @@ Open `http://localhost:5274`.
 ### Production
 
 ```bash
-npm run build   # builds the client into client/dist
-npm start        # Express serves the API + the built client on :5274 (one process, one port)
+npm run build   # installs dependencies and builds the client into client/dist
+npm start       # Express serves the API and the built client on one port
 ```
+
+In dev, Vite (`:5274`) and the API (`:3002`) are two processes. In production there is no Vite: Express alone serves both from `PORT` (default `3002`).
+
+### Deploying to Render
+
+The repo includes a `render.yaml` Blueprint. In Render choose **New > Blueprint**, pick this repository and apply. That creates one free web service with:
+
+- Build command: `npm install && npm run build`
+- Start command: `npm start`
+- Health check: `/api/health`
+
+Render sets `PORT` itself, and every push to `main` redeploys.
 
 ### Tests
 
 ```bash
-npm test   # runs the server suite (Vitest + Supertest), then the client suite (Vitest)
+npm test
 ```
 
 ---
@@ -111,80 +170,60 @@ npm test   # runs the server suite (Vitest + Supertest), then the client suite (
 ## Project Structure
 
 ```
-fault-line/
+Fault-line/
 ├── README.md
 ├── LICENSE
-├── package.json                    # root dev orchestration (concurrently) + test runner
+├── package.json                      # Root scripts: install:all, dev, build, start, test, data
+├── render.yaml                       # Render Blueprint: one free web service
+├── .github/workflows/ci.yml          # Tests and build on every push and PR
+├── docs/screenshots/                 # README images
+├── scripts/build-data.mjs            # Regenerates the bundled plate and city data
 │
 ├── server/
-│   ├── package.json
-│   ├── vitest.config.js
-│   ├── data/world.json             # shared world/ledger store (gitignored, created at runtime)
-│   ├── test/
-│   │   ├── health.test.js
-│   │   ├── quakes.test.js          # mocked USGS fetch, cache behavior
-│   │   ├── damageModel.test.js     # haversine, attenuation, damage math
-│   │   ├── overduePressure.test.js
-│   │   ├── ledgerPagination.test.js # cursor pagination: tie-breaking, hasMore, cursor continuation, limit clamping
-│   │   └── world.test.js           # Supertest against /api/world*, mocked fetch
-│   └── src/
-│       ├── app.js                  # createApp(): Express app (importable by tests)
-│       ├── index.js                # createApp().listen(...)
-│       ├── lib/
-│       │   ├── usgsFeed.js         # shared USGS fetch + normalize + cache
-│       │   ├── sites.js            # the curated 6-site portfolio (real coords + fault data)
-│       │   ├── damageModel.js      # haversine, attenuation/intensity, damage-vs-resilience
-│       │   ├── overduePressure.js  # seismic-gap overdue-pressure calc
-│       │   ├── worldStore.js       # flat-JSON persistence, WORLD_DATA_FILE override
-│       │   ├── worldEngine.js      # budget regen, quake ingestion, aftershock windows, ledger
-│       │   └── ledgerPagination.js # cursor-based pagination + site filtering over the permanent ledger
-│       └── routes/
-│           ├── quakes.js           # USGS proxy
-│           └── world.js            # GET /api/world, /api/world/ledger, allocate, commit-aftershock-response
+│   ├── src/
+│   │   ├── index.js                  # Starts the server on PORT
+│   │   ├── app.js                    # Express app, gzip, API routes, static client hosting
+│   │   ├── data/plateSteps.json      # PB2002 boundary steps (generated)
+│   │   ├── lib/
+│   │   │   ├── usgsFeed.js           # Range-to-feed mapping, normalisation, per-range cache, stale fallback
+│   │   │   ├── plates.js             # Grid-indexed nearest-boundary classification, subduction polarity
+│   │   │   └── geo.js                # Haversine, point-to-segment distance, longitude wrapping
+│   │   └── routes/quakes.js          # GET /api/quakes?range=
+│   └── test/                         # Supertest route tests and plate/geo unit tests
 │
 └── client/
-    ├── package.json
-    ├── vite.config.ts              # dev proxy: /api → :3002
-    ├── vitest.config.ts
-    ├── tsconfig.json
     ├── index.html
-    ├── public/
-    │   ├── manifest.webmanifest
-    │   ├── sw.js                    # app-shell service worker (never caches /api/*)
-    │   └── icon.svg, icon-192.png, icon-512.png
+    ├── public/                       # Manifest, service worker, icons
     └── src/
-        ├── main.tsx
-        ├── App.tsx                  # wires world state + quake feed into the HUD panels
-        ├── App.css                  # the sci-fi ops-center visual language
+        ├── App.tsx                   # State, filters, replay, alerts, keyboard, layout
+        ├── styles.css                # Design system and responsive layout
         ├── types.ts
-        ├── seismology/
-        │   ├── energyMapping.ts      # magnitude→energy scaling, depth bands
-        │   ├── unrestIndex.ts        # decayed-energy accumulator driving the "Global Activity" HUD readout
-        │   ├── omoriAftershocks.ts   # Omori-Utsu + Gutenberg-Richter aftershock probability forecast; estimateBValue fits the b-value live (Aki/Utsu MLE)
-        │   ├── tectonicRegion.ts     # coarse bounding-box tectonic-province classifier
-        │   ├── regionDominance.ts    # per-region decayed energy + "dominant region" HUD readout
-        │   ├── rarityScore.ts        # objective statistical rarity scoring for the intel log
-        │   └── glyph.ts              # deterministic per-event waveform glyph
+        ├── api/useQuakeFeed.ts       # Polls /api/quakes for the chosen window
+        ├── hooks/                    # useStoredState, useElementSize, useNow
+        ├── data/                     # Plate boundary polylines and cities (generated)
         ├── map/
-        │   ├── projection.ts         # equirectangular projection (pure), reused by the threat board
-        │   ├── panZoom.ts            # pure screen<->world fit/zoom/pan-clamp math (cover-fit, always fills the panel, crops overflow rather than letterboxing, zoom-around-cursor, pan clamping)
-        │   └── dragState.ts          # pure drag-state reducer: distinguishes a click from a pan/drag release
-        ├── inputs/
-        │   ├── useQuakeFeed.ts       # polls the server's USGS proxy
-        │   ├── useWorldState.ts      # polls the shared server world snapshot (sites, budget, ledgerCount)
-        │   └── useLedgerPage.ts      # pages through GET /api/world/ledger for one site filter (or all)
+        │   ├── WorldMap.tsx          # SVG map: layers, contours, markers, pan/zoom/pinch, fly-to
+        │   ├── geography.ts          # Projection, static paths, geodesic circles
+        │   ├── colors.ts             # Depth, age, intensity and plate palettes, marker sizing
+        │   ├── panZoom.ts            # Pure fit/zoom/pan-clamp math
+        │   └── dragState.ts          # Pure click-vs-drag reducer
+        ├── seismology/
+        │   ├── intensity.ts          # Atkinson & Wald (2007) intensity prediction, contour radii, MMI wording
+        │   ├── aftershocks.ts        # Reasenberg & Jones forecasts, rupture length, sequence grouping
+        │   └── stats.ts              # Energy, histograms, completeness, b-value, catalog summary
         ├── lib/
-        │   ├── formatTime.ts         # clock + "time ago" formatting
-        │   └── overdueRanking.ts     # rank/pick sites by overdue pressure
+        │   ├── cities.ts             # Nearby-city shaking estimates, nearest-city labels
+        │   ├── timeline.ts           # Time bins and replay cursor
+        │   ├── alerts.ts             # Alert rules and new-arrival detection
+        │   ├── geo.ts                # Haversine, bearing, compass points
+        │   └── format.ts             # Times, distances, percentages, coordinates
         └── components/
-            ├── ThreatBoard.tsx       # tactical world map: land silhouette, sites, recent quakes, radar sweep; draggable to pan, scroll/pinch to zoom, fits any panel size without distorting geography
-            ├── SiteGrid.tsx          # one tile per site: resilience/health/overdue gauges + allocate control + most-overdue callout
-            ├── IntelLog.tsx          # scrolling global event log with rarity + glyph
-            ├── AftershockConsole.tsx # full-width banner, lights up only while a decision window is open
-            ├── LedgerView.tsx        # Permanent Ledger tab: every entry, filterable by site
-            ├── LedgerEntryRow.tsx    # shared per-entry-type rendering (used by LedgerView and SiteDetailModal)
-            ├── SiteDetailModal.tsx   # site history drill-down; a real modal with a real focus trap
-            └── ErrorBoundary.tsx     # top-level render-error fallback
+            ├── FeedPanel.tsx, QuakeRow.tsx, MagBadge.tsx
+            ├── OverviewPanel.tsx, charts.tsx
+            ├── QuakeDetail.tsx
+            ├── Timeline.tsx, Legend.tsx
+            ├── MapMenu.tsx, LocationMenu.tsx, AlertsMenu.tsx, Popover.tsx
+            └── Toasts.tsx, AboutDialog.tsx, ErrorBoundary.tsx
 ```
 
 ---
@@ -193,86 +232,98 @@ fault-line/
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| GET | `/api/quakes?range=hour\|day\|week\|month` | Normalised events from the matching USGS feed (`all_hour`, `all_day`, `all_week`, `2.5_month`), newest first, each with its nearest plate boundary. Default `day`. Returns `{ range, feed, quakes, generatedAt, fetchedAt, cached, stale }` |
 | GET | `/api/health` | Liveness check |
-| GET | `/api/quakes` | Normalized recent quakes from the cached USGS feed |
-| GET | `/api/world` | Runs a processing pass (budget regen, window finalization, quake ingestion) and returns the world snapshot: sites + budget + `ledgerCount` + active aftershock window (not the full ledger; see below) |
-| GET | `/api/world/ledger` | Cursor-paginated permanent ledger. Query params: `siteId` (optional filter), `cursor` (from a previous response's `nextCursor`), `limit` (default 25, max 100). Returns `{ entries, hasMore, nextCursor, totalMatching }` |
-| POST | `/api/world/allocate` | `{ siteId, amount }`: spend resilience budget to raise a site's resilience |
-| POST | `/api/world/commit-aftershock-response` | `{ siteId, amount }`: commit budget to a site during an open aftershock decision window |
 
 ---
 
 ## Configuration
 
 | Variable | Default | Description |
-|----------|---------|--------------|
-| `PORT` | `5274` | Server port (overridden to `3002` by `npm run dev` for the API process) |
-| `USGS_FEED` | `all_day` | Which USGS summary feed to poll |
-| `WORLD_DATA_FILE` | `server/data/world.json` | Overrides the world/ledger store path, used by the test suite to isolate test data |
+|----------|---------|-------------|
+| `PORT` | `3002` | Port for the Express server (Render sets this automatically) |
+| `USGS_BASE_URL` | `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary` | Where to fetch the summary feeds from. Point it at a mirror, or at a local server replaying recorded feeds for offline development |
 
 ---
 
 ## Architecture
 
 ```
-                ┌────────────────────────────────┐
-                │   React + Vite (Port 5274)     │
-                │   Threat board / site grid /    │
-                │   intel log / aftershock console │
-                │   quake feed + world-state polling│
-                └──────────────┬───────────────────┘
-                               │ REST (/api/*)
-                ┌──────────────▼───────────────────┐
-                │   Express (Port 3002)              │
-                │   USGS feed proxy + cache            │
-                │   world engine: budget regen,          │
-                │   quake ingestion → damage → ledger,    │
-                │   aftershock window open/finalize        │
-                └──────┬─────────────┬─────────────────────┘
-                       │             │
-              ┌────────▼───┐   ┌─────▼──────────┐
-              │ USGS feed   │   │ world.json      │
-              │ (quakes)    │   │ (shared, append-│
-              │             │   │  only ledger)   │
-              └─────────────┘   └─────────────────┘
+   ┌──────────────────────────┐        ┌──────────────────────────────┐
+   │ USGS summary feeds        │        │ PB2002 plate steps (bundled)  │
+   │ all_hour / all_day /      │        │ 5,824 segments, grid-indexed  │
+   │ all_week / 2.5_month      │        └───────────────┬──────────────┘
+   └────────────┬─────────────┘                         │
+                └──────────────┬────────────────────────┘
+                ┌──────────────▼─────────────────────────┐
+                │ Express (Render / :3002)                 │
+                │ /api/quakes: normalise, classify plate,  │
+                │ per-range cache, stale fallback, gzip     │
+                └──────────────┬─────────────────────────┘
+                               │ polled every 30 s to 5 min
+                ┌──────────────▼─────────────────────────┐
+                │ React client                             │
+                │ useQuakeFeed → filters → replay cursor   │
+                └───┬───────────────┬─────────────────┬───┘
+                    │               │                 │
+     ┌──────────────▼──────┐ ┌──────▼─────────────┐ ┌─▼──────────────────────┐
+     │ WorldMap.tsx         │ │ Feed / Overview     │ │ QuakeDetail.tsx          │
+     │ plates, events,      │ │ stats.ts: energy,   │ │ intensity.ts, cities.ts  │
+     │ contours, cities     │ │ Mc, b-value, G-R     │ │ aftershocks.ts           │
+     └─────────────────────┘ └────────────────────┘ └────────────────────────┘
+                               │
+                ┌──────────────▼─────────────────────────┐
+                │ alerts.ts → toasts + Notifications       │
+                └────────────────────────────────────────┘
 ```
+
+How a quake gets its context:
+
+1. **Fetch:** the server pulls the USGS feed for the chosen window and drops events with missing or impossible coordinates.
+2. **Classify:** each event is matched to the nearest PB2002 boundary step through a 5-degree spatial grid, giving the boundary type, the plate pair, subduction polarity and relative velocity.
+3. **Shake:** on selection, the client solves the Atkinson & Wald (2007) intensity equation outward from the hypocentre to draw contours and rank nearby cities.
+4. **Forecast:** the Reasenberg & Jones (1989) model integrates the Omori-Utsu decay over the next day, week and month from the time elapsed so far, scaled by Gutenberg-Richter.
+5. **Sequence:** later events inside the Wells & Coppersmith rupture-length zone are counted as aftershocks; a larger later one marks the original as a foreshock.
 
 ---
 
 ## Testing
 
 ```bash
-npm test                         # both suites, from the repo root
-npm test --prefix server         # Vitest + Supertest: health/quakes/world routes + pure math
-npm test --prefix client         # Vitest: seismology math, rarity/glyph, projection, formatTime
+npm test
 ```
 
-Every pure/deterministic function in this codebase has a real Vitest unit test: the damage/attenuation model, the overdue-pressure calc, the rarity scoring, the Omori-Utsu/Gutenberg-Richter probability math, the live b-value estimator (including a synthetic-catalog test that verifies it actually recovers a known true b-value, not just that it returns some number), the energy/magnitude scaling, haversine distance, the tectonic-region classifier, the equirectangular projection and pan/zoom/drag-state math behind the threat board's map, the overdue-ranking logic behind the most-overdue callout, and the ledger's cursor-pagination logic (tie-breaking when entries share a timestamp, cursor continuation, limit clamping). The world/ledger routes are covered with Supertest, with `fetch` mocked to simulate specific live-quake scenarios (a strong quake near a site, a distant weak one, a magnitude-6+ mainshock opening and later expiring an aftershock decision window, a burst of concurrent requests) and an isolated `WORLD_DATA_FILE` per test so runs never touch real data or each other. The stateful polling hooks and DOM-heavy map/log/console rendering are exercised by manual/browser testing rather than unit tests: the pure math each one is built on is fully unit-tested even though the rendering shell isn't.
+**Client (74 tests, Vitest):** every pure module in `seismology/`, `lib/` and `map/` has a suite with physical-sanity checks. The b-value estimator recovers a known b = 1.0 from a synthetic Gutenberg-Richter catalog; maximum-curvature completeness lands on the peak bin plus the standard 0.2 correction; the M4.5 global floor is tested against a US-heavy synthetic catalog; the Omori integral matches numerical integration; the Reasenberg & Jones forecast scales by exactly 10^b per magnitude unit and gives the textbook-scale answer for an M6; intensity falls with distance and depth and contour radii match the equation at their edges; Wells & Coppersmith gives ~50 km for an M7; an M6 comes out near 15 kt of TNT; and sequence grouping finds aftershocks, foreshocks and parents.
+
+**Server (17 tests, Vitest + Supertest):** feed normalisation, invalid-event dropping, newest-first sorting, the range-to-feed mapping, 400 on unknown ranges, caching, the stale fallback when USGS fails after a good fetch, and 502 when nothing is cached, all against a mocked `fetch`. Plate classification is checked against real geography: the Chilean margin is Nazca subduction, the San Andreas is a Pacific/North America transform, Iceland is divergent, central Nebraska is intraplate, and Tonga resolves across the antimeridian.
+
+`WorldMap.tsx` and the panels are checked in a real browser rather than unit tests. Both suites and a production build run in CI on every push.
 
 ---
 
 ## Honest Limitations
 
-- **This is not an early-warning, hazard-forecasting, or safety tool of any kind.** No claim is made or implied about predicting real earthquakes, real aftershocks, or informing real-world safety decisions.
-- **The recurrence intervals and "last major rupture" years are rough, rounded public estimates, not authoritative hazard data.** They were assembled from public seismology summaries for a hobby project. Several carry real, acknowledged uncertainty; Wellington/Hikurangi's in particular is little more than an order-of-magnitude placeholder, since no confirmed great full-margin rupture exists in the ~200-year written record for that segment. See the notes on each site in `server/src/lib/sites.js`.
-- **The attenuation/damage model is a deliberately simplified approximation, not a real ShakeMap or region-calibrated GMICE.** It's loosely shaped like published intensity-attenuation relations (magnitude up, log-distance down), with hand-picked coefficients tuned only to feel reasonable, not fit to any real region's ground-motion data.
-- **The Omori-Utsu/Gutenberg-Richter aftershock forecast is illustrative, not a real forecast.** The productivity constant (K) is still a reasonable textbook default, not fit to any specific real aftershock sequence, and that's a hard structural limit here, not a to-do: a live decision window is only ~75 real seconds, nowhere near enough of an actual sequence to fit K against (USGS's own generic model makes the same call for the same reason, before enough sequence-specific data exists). The b-value is different: `estimateBValue` is a genuine live fit (Aki 1965's maximum-likelihood method) against the real global feed, not a fixed constant, but it's still a *global* estimate pooling every region's background seismicity together, not a properly localized b-value for the specific aftershock zone the way a real regional forecast would use; real forecasting tools (e.g. USGS's own aftershock forecasts) are calibrated against the actual local sequence as it unfolds.
-- **The tectonic-region classifier is coarse.** It buckets coordinates with a handful of rectangular bounding boxes, not actual plate-boundary geometry.
-- **This is a single shared world with no authentication.** Anyone who can reach the server can spend the shared resilience budget or commit an aftershock response; there are no accounts, no per-user state, and no access control. That's a deliberate simplicity choice for a hobby project, not a production posture.
-- **World processing is lazy, not continuous.** The server ingests new quakes and finalizes aftershock windows only when `GET /api/world` is called, not via a background worker; if nobody has the app open for a while, ingestion simply catches up (correctly, since everything is computed from real timestamps) the next time someone does.
-- **The rarity score is a rough Gutenberg-Richter-style statistical estimate, not a calibrated catalog frequency.** It uses a fixed global b-value and rough global depth-band proportions, not a live-fit model of the actual current catalog.
-- **The USGS feed can lag or be temporarily delayed or unavailable.** The world engine simply skips ingestion for that pass and catches up next time; it never crashes the endpoint. Reads/writes against the shared `world.json` file are also serialized through a single in-process lock (`worldStore.transact`) and written atomically (temp file + rename), so two overlapping requests (two tabs open, a dev-mode double-poll) can't race and corrupt the file.
+- **Intensity estimates are rough.** Atkinson & Wald (2007) California coefficients are applied worldwide, using hypocentral distance as a stand-in for rupture distance. Real attenuation varies a lot by region (stable continental interiors carry shaking much further), local soil can add a full intensity level, and the equation saturates near the source for great quakes (an M9.5 peaks around VII).
+- **Aftershock forecasts use generic parameters.** The Reasenberg & Jones (1989) generic California values (a = -1.67, b = 0.91, p = 1.08, c = 0.05 days) stand in for the regional and sequence-specific parameters USGS uses operationally.
+- **The aftershock zone is a circle.** Real aftershocks follow the rupture's shape; the zone is a radius from Wells & Coppersmith rupture length (at least 20 km), so long ruptures are under-covered at their ends.
+- **The global b-value is a catalog statistic, not a regional one.** It pools every region in the window and only starts at M4.5, so a quiet day often has too few events to fit.
+- **Plate classification is nearest-boundary only.** It does not consider depth or slab geometry, so a deep event far inland above a subducting slab can be labelled by the nearest surface boundary, or as intraplate if that boundary is over 400 km away. PB2002 is also a 2003 model.
+- **Cities are a bundled list** of places over 100,000 people, so smaller towns closer to an epicentre are not listed.
+- **Alerts only fire while a tab is open.** There is no push server.
+- **The month window is M2.5+ only**, to keep the payload light; smaller events are in the hour, day and week windows.
+- **USGS feeds lag reality** by minutes for automatic solutions and can be revised later; magnitudes and locations of fresh events often change.
+- **Render's free tier sleeps when idle**, so the first visit after a quiet spell is slow.
 
 ---
 
 ## Suggested Future Features
 
-- **Real plate-boundary data**: swap the coarse bounding-box tectonic classifier for an actual plate-boundary GeoJSON dataset and a proper point-to-line-distance lookup.
-- **A background worker for world processing**, so ingestion and aftershock-window finalization happen continuously instead of only on read.
-- **Authentication and multi-operator attribution**, so the permanent ledger can record *who* made each allocation/commitment decision, not just that one was made.
-- **A properly localized b-value fit**, using only quakes actually near the current aftershock zone instead of pooling the entire global feed, once there's a sensible way to define "near" for a sequence that's often still just minutes old.
-- **A real ShakeMap-style regional GMICE**, replacing the current simplified attenuation formula with a properly region-calibrated one.
-- **Push notifications** when a live aftershock decision window opens, so the operator doesn't have to have the tab open to catch the ~75-second window.
+- **Real ShakeMap and DYFI overlays** from the USGS detail feed for events that have them, side by side with the estimate.
+- **Push notifications** through a service worker and a small server-side watcher, so alerts work with the tab closed.
+- **Slab depth contours** (Slab2) to place intermediate and deep events on the subducting plate they belong to.
+- **Region-calibrated intensity and aftershock parameters** (for example the Page et al. 2016 global tectonic regionalisation).
+- **A 3D globe view** for deep-focus events and polar regions.
+- **City search** for setting your location.
 
 ---
 

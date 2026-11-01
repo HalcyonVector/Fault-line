@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeCoverFit, clampScale, zoomAroundPoint, clampPan, MAX_ZOOM_MULTIPLIER } from './panZoom';
+import { computeCoverFit, computeContainFit, centerOn, clampScale, zoomAroundPoint, clampPan, MAX_ZOOM_MULTIPLIER } from './panZoom';
 
 describe('computeCoverFit', () => {
   it('scales to fill the wider axis and crops the other when aspect ratios differ (square container)', () => {
@@ -104,5 +104,19 @@ describe('clampPan', () => {
     const dragged = clampPan(50000, 50000, 1, 2000, 1000, 500, 400);
     expect(dragged.tx).toBe(0);
     expect(dragged.ty).toBe(0);
+  });
+});
+
+describe('computeContainFit / centerOn', () => {
+  it('fits the whole world inside the container, centered', () => {
+    const t = computeContainFit(1000, 500, 800, 800);
+    expect(t.scale).toBeCloseTo(0.8);
+    expect(t.tx).toBeCloseTo(0);
+    expect(t.ty).toBeCloseTo(200);
+  });
+  it('centers a world point', () => {
+    const t = centerOn(100, 50, 2, 400, 300);
+    expect(100 * t.scale + t.tx).toBeCloseTo(200);
+    expect(50 * t.scale + t.ty).toBeCloseTo(150);
   });
 });

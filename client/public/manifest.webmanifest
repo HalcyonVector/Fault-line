@@ -1,12 +1,12 @@
 {
-  "name": "Fault Line",
+  "name": "Fault Line · Live earthquakes",
   "short_name": "Fault Line",
-  "description": "A live seismic operations command center tracking real cities on real fault systems against the actual USGS earthquake feed.",
+  "description": "Live USGS earthquakes on a map of the plate boundaries, with shaking estimates, aftershock forecasts and alerts near you.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0c0805",
-  "theme_color": "#0c0805",
+  "background_color": "#080b10",
+  "theme_color": "#080b10",
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

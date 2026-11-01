@@ -1,5 +1,5 @@
 /**
- * Pure screen<->world transform math for the Threat Board's interactive map.
+ * Pure screen<->world transform math for the interactive world map.
  *
  * The map keeps a fixed "world space" coordinate system (the equirectangular
  * projection's own width/height, see `projection.ts`) and renders it inside
@@ -96,4 +96,28 @@ export function clampPan(
     tx: Math.min(maxTx, Math.max(minTx, tx)),
     ty: Math.min(maxTy, Math.max(minTy, ty)),
   };
+}
+
+/**
+ * The "contain" fit: the largest uniform scale at which the whole world
+ * rectangle fits inside the container, centered. Used as the minimum zoom for
+ * the Natural Earth projection, whose curved outline has no meaningful
+ * content to crop at the edges.
+ */
+export function computeContainFit(
+  worldWidth: number,
+  worldHeight: number,
+  containerWidth: number,
+  containerHeight: number,
+): ViewTransform {
+  if (worldWidth <= 0 || worldHeight <= 0 || containerWidth <= 0 || containerHeight <= 0) {
+    return { scale: 1, tx: 0, ty: 0 };
+  }
+  const scale = Math.min(containerWidth / worldWidth, containerHeight / worldHeight);
+  return { scale, tx: (containerWidth - worldWidth * scale) / 2, ty: (containerHeight - worldHeight * scale) / 2 };
+}
+
+/** Transform that centers world point (wx, wy) in the container at `scale`. */
+export function centerOn(wx: number, wy: number, scale: number, containerWidth: number, containerHeight: number): ViewTransform {
+  return { scale, tx: containerWidth / 2 - wx * scale, ty: containerHeight / 2 - wy * scale };
 }

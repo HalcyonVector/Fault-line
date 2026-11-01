@@ -1,11 +1,11 @@
 /**
- * Pure drag-state reducer for the Threat Board map's click-vs-drag
+ * Pure drag-state reducer for the world map's click-vs-drag
  * disambiguation. Pointer events (down/move/up) feed in; it tracks whether
  * the gesture has moved past a small pixel threshold, and hands back the
- * incremental screen-space delta to apply as a pan. A site marker's click
+ * incremental screen-space delta to apply as a pan. The map's release
  * handler consults `wasClick` on the state produced by the matching
- * `pointerup` to decide whether the release was a genuine tap (fire
- * `onSelectSite`) or the end of a drag (don't).
+ * `pointerup` to decide whether the release was a genuine tap (select the
+ * event under the pointer) or the end of a drag (don't).
  */
 
 export interface DragState {

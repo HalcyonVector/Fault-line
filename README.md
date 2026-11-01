@@ -8,6 +8,8 @@ Built with React, TypeScript, d3-geo, three.js and Express on free, keyless publ
 
 > **What it's for:** keep it open in a tab to watch the planet's seismicity in real time, then click into any event to understand it the way a seismologist would read it, not just as a dot and a number.
 
+**Live demo:** [fault-line.onrender.com](https://fault-line.onrender.com/) (Render's free tier sleeps when idle, so the first load can take up to a minute)
+
 ![Live map: plate boundaries, the past week of quakes, the event feed and the replay timeline](docs/screenshots/overview.png)
 
 ![A selected M6.1 in Japan: estimated shaking contours, nearby cities, tectonic setting and aftershock forecast](docs/screenshots/quake-detail.png)

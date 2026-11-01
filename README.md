@@ -10,13 +10,13 @@ Built with React, TypeScript, d3-geo, three.js and Express on free, keyless publ
 
 **Live demo:** [fault-line.onrender.com](https://fault-line.onrender.com/) (Render's free tier sleeps when idle, so the first load can take up to a minute)
 
-![Live map: plate boundaries, the past week of quakes, the event feed and the replay timeline](docs/screenshots/overview.png)
+![Live map on fault-line.onrender.com: plate boundaries, the past day of quakes, the event feed and the replay timeline](docs/screenshots/overview.png)
 
 ![A selected M6.1 in Japan: estimated shaking contours, nearby cities, tectonic setting and aftershock forecast](docs/screenshots/quake-detail.png)
 
 ![3D globe: a month of M2.5+ quakes at 3x depth; the deep Tonga-Fiji slab shows in violet inside the Earth](docs/screenshots/globe.png)
 
-<sub>Screenshots were captured against a recorded USGS M2.5+ week feed from late November 2024, replayed through the app locally.</sub>
+<sub>The first screenshot is the live deployment. The detail and globe screenshots were captured against recorded USGS feeds from late November 2024, replayed through the app locally.</sub>
 
 ---
 

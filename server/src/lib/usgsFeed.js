@@ -48,7 +48,7 @@ export function normalizeFeature(feature) {
   };
 }
 
-function withPlate(q) {
+export function withPlate(q) {
   const key = `${q.lon.toFixed(2)},${q.lat.toFixed(2)}`;
   if (!plateMemo.has(key)) {
     if (plateMemo.size > 50_000) plateMemo.clear();

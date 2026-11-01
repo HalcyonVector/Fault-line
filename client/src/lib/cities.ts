@@ -50,3 +50,22 @@ export function nearestCity(lon: number, lat: number, cities: City[] = CITIES): 
   }
   return best;
 }
+
+const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/**
+ * Cities matching a typed query: names starting with it first, then names
+ * containing it, then country matches; bigger cities first within each group.
+ */
+export function searchCities(query: string, limit = 6, cities: City[] = CITIES): City[] {
+  const q = fold(query.trim());
+  if (q.length < 2) return [];
+  const scored: { c: City; rank: number }[] = [];
+  for (const c of cities) {
+    const name = fold(c.name);
+    const rank = name.startsWith(q) ? 0 : name.includes(q) ? 1 : fold(c.country).startsWith(q) ? 2 : -1;
+    if (rank >= 0) scored.push({ c, rank });
+  }
+  scored.sort((a, b) => a.rank - b.rank || b.c.pop - a.c.pop);
+  return scored.slice(0, limit).map((s) => s.c);
+}

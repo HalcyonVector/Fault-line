@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuakeFeed } from './api/useQuakeFeed';
+import { useObserved } from './api/useObserved';
+import { useArchive } from './api/useArchive';
+import { ArchivePanel } from './components/ArchivePanel';
+import { archiveSpan, describeArchive, type ArchiveQuery } from './lib/archive';
 import { useStoredState } from './hooks/useStoredState';
 import { useNow } from './hooks/useNow';
-import { WorldMap, type ColorMode, type MapInsets } from './map/WorldMap';
+import { WorldMap, type ColorMode, type MapInsets, type ViewRequest } from './map/WorldMap';
 import { FeedPanel } from './components/FeedPanel';
 import { OverviewPanel } from './components/OverviewPanel';
 import { QuakeDetail } from './components/QuakeDetail';
@@ -17,8 +21,11 @@ import { cityImpacts, nearestCity } from './lib/cities';
 import { RANGE_SPEC, binByTime, visibleAt, advanceCursor } from './lib/timeline';
 import { alertReason, newArrivals, DEFAULT_ALERT_SETTINGS } from './lib/alerts';
 import { formatRelativeTime } from './lib/format';
-import type { AlertSettings, FeedRange, UserLocation } from './types';
+import type { AlertSettings, FeedRange, ShakingSource, UserLocation } from './types';
 import './styles.css';
+
+// three.js is only downloaded when someone opens the 3D view.
+const GlobeView = lazy(() => import('./globe/GlobeView'));
 
 const RANGES: { id: FeedRange; label: string; short: string }[] = [
   { id: 'hour', label: 'Hour', short: '1h' },
@@ -57,18 +64,24 @@ export default function App() {
   const [range, setRange] = useStoredState<FeedRange>('fl.range', 'day', isRange);
   const [minMag, setMinMag] = useStoredState('fl.minMag', 0);
   const [colorMode, setColorMode] = useStoredState<ColorMode>('fl.color', 'depth');
+  const [view, setView] = useStoredState<'map' | 'globe'>('fl.view', 'map', (v): v is 'map' | 'globe' => v === 'map' || v === 'globe');
   const [showPlates, setShowPlates] = useStoredState('fl.plates', true);
   const [includeOther, setIncludeOther] = useStoredState('fl.other', false);
   const [location, setLocation] = useStoredState<UserLocation | null>('fl.location', null, isLocation);
   const [alerts, setAlerts] = useStoredState<AlertSettings>('fl.alerts', DEFAULT_ALERT_SETTINGS);
-  const [tab, setTab] = useState<'feed' | 'overview'>('feed');
+  const [mode, setMode] = useState<'live' | 'archive'>('live');
+  const [archiveQuery, setArchiveQuery] = useState<ArchiveQuery | null>(null);
+  const [tab, setTab] = useState<'search' | 'feed' | 'overview'>('feed');
   const [selectedId, setSelectedId] = useState<string | null>(readHashId);
   const [focusNonce, setFocusNonce] = useState(() => (readHashId() ? 1 : 0));
+  const [viewRequest, setViewRequest] = useState<ViewRequest>({ nonce: 0, area: null });
+  const requestView = useCallback((area: ViewRequest['area']) => setViewRequest((v) => ({ nonce: v.nonce + 1, area })), []);
   const [search, setSearch] = useState('');
   const [cursor, setCursor] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [picking, setPicking] = useState(false);
   const [showShaking, setShowShaking] = useState(true);
+  const [shakingSource, setShakingSource] = useState<ShakingSource>('estimate');
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [aboutOpen, setAboutOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -78,9 +91,14 @@ export default function App() {
   const now = useNow(1000);
   const spec = RANGE_SPEC[range];
   const feedReady = feed.data?.range === range;
+  const archive = useArchive(mode === 'archive' ? archiveQuery : null);
+  const isArchive = mode === 'archive';
 
   // ---- Data ------------------------------------------------------------
-  const allQuakes = useMemo(() => (feedReady ? feed.data!.quakes : feed.data?.quakes ?? []), [feed.data, feedReady]);
+  const allQuakes = useMemo(
+    () => (isArchive ? archive.quakes : feedReady ? feed.data!.quakes : feed.data?.quakes ?? []),
+    [isArchive, archive.quakes, feed.data, feedReady],
+  );
   const filtered = useMemo(
     () => allQuakes.filter((q) => q.mag >= minMag && (includeOther || q.type === 'earthquake')),
     [allQuakes, minMag, includeOther],
@@ -88,14 +106,26 @@ export default function App() {
   const visible = useMemo(() => visibleAt(filtered, cursor), [filtered, cursor]);
   const listOrder = useMemo(() => [...visible].sort((a, b) => (b.time ?? 0) - (a.time ?? 0)), [visible]);
   const selected = useMemo(() => allQuakes.find((q) => q.id === selectedId) ?? null, [allQuakes, selectedId]);
+  const observed = useObserved(selected);
+  useEffect(() => setShakingSource('estimate'), [selectedId]);
   const impacts = useMemo(() => (selected ? cityImpacts(selected.lon, selected.lat, selected.mag, selected.depthKm) : []), [selected]);
 
   // The live edge, rounded to the minute so the timeline doesn't reflow every second.
   const liveEdge = Math.ceil(now / 60_000) * 60_000;
-  const startMs = liveEdge - spec.spanMs;
-  const bins = useMemo(() => binByTime(filtered, liveEdge, spec.spanMs, spec.binMs), [filtered, liveEdge, spec]);
+  // The time span on screen: the rolling live window, or the archive query's dates.
+  const { startMs, endMs, spanMs, binMs } = useMemo(() => {
+    if (isArchive && archiveQuery) {
+      const s = archiveSpan(archiveQuery);
+      const span = s.endMs - s.startMs;
+      return { startMs: s.startMs, endMs: s.endMs, spanMs: span, binMs: span / 60 };
+    }
+    return { startMs: liveEdge - spec.spanMs, endMs: liveEdge, spanMs: spec.spanMs, binMs: spec.binMs };
+  }, [isArchive, archiveQuery, liveEdge, spec]);
+  const bins = useMemo(() => binByTime(filtered, endMs, spanMs, binMs), [filtered, endMs, spanMs, binMs]);
   // Age coloring and pulses only need ~5 s resolution live; replay needs the exact cursor.
-  const clockMs = cursor ?? Math.floor(now / 5000) * 5000;
+  const clockMs = cursor ?? (isArchive ? endMs : Math.floor(now / 5000) * 5000);
+  // Live: the last hour pulses. Archive replay: whatever happened in the last ~2.5% of the span.
+  const pulseWindowMs = isArchive ? (cursor === null ? 0 : spanMs / 40) : Math.min(3_600_000, spanMs / 24);
 
   // ---- Selection & URL hash ----------------------------------------------
   const select = useCallback((id: string | null, fly = true) => {
@@ -116,11 +146,11 @@ export default function App() {
 
   // A shared link may point at an older event: widen the window until it's found (up to a month).
   useEffect(() => {
-    if (!feedReady || !selectedId || selected) return;
+    if (isArchive || !feedReady || !selectedId || selected) return;
     const order: FeedRange[] = ['hour', 'day', 'week', 'month'];
     const next = order[order.indexOf(range) + 1];
     if (next && focusNonce === 1) setRange(next);
-  }, [feedReady, selectedId, selected, range, focusNonce, setRange]);
+  }, [isArchive, feedReady, selectedId, selected, range, focusNonce, setRange]);
 
   useEffect(() => {
     document.title = selected ? `M${selected.mag.toFixed(1)} ${selected.place} · Fault Line` : 'Fault Line · Live earthquakes';
@@ -135,7 +165,7 @@ export default function App() {
       const dt = t - last;
       last = t;
       setCursor((c) => {
-        const next = advanceCursor(c ?? startMs, dt, spec.spanMs, PLAYBACK_SECONDS, liveEdge);
+        const next = advanceCursor(c ?? startMs, dt, spanMs, PLAYBACK_SECONDS, endMs);
         if (next === null) setPlaying(false);
         return next;
       });
@@ -143,21 +173,41 @@ export default function App() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, startMs, liveEdge, spec.spanMs]);
+  }, [playing, startMs, endMs, spanMs]);
 
   const togglePlay = useCallback(() => {
     setPlaying((p) => {
-      if (!p) setCursor((c) => (c === null || c >= liveEdge - spec.binMs ? startMs : c));
+      if (!p) setCursor((c) => (c === null || c >= endMs - binMs ? startMs : c));
       return !p;
     });
-  }, [liveEdge, startMs, spec.binMs]);
+  }, [endMs, startMs, binMs]);
 
   const goLive = useCallback(() => {
     setPlaying(false);
     setCursor(null);
   }, []);
 
-  useEffect(goLive, [range, goLive]);
+  useEffect(goLive, [range, mode, archiveQuery, goLive]);
+
+  const switchMode = useCallback(
+    (m: 'live' | 'archive') => {
+      setMode(m);
+      setSelectedId(null);
+      setSearch('');
+      setTab(m === 'archive' ? 'search' : 'feed');
+      requestView(null);
+    },
+    [requestView],
+  );
+
+  // Show the results list once an archive search lands.
+  useEffect(() => {
+    if (isArchive && archiveQuery && !archive.loading && !archive.error && archive.quakes.length) {
+      setTab('feed');
+      setSelectedId(null);
+      requestView(archiveQuery.near ? { lon: archiveQuery.near.lon, lat: archiveQuery.near.lat, radiusKm: archiveQuery.near.radiusKm } : null);
+    }
+  }, [isArchive, archiveQuery, archive.loading, archive.error, archive.quakes, requestView]);
 
   // ---- Alerts --------------------------------------------------------------
   const seen = useRef(new Set<string>());
@@ -259,7 +309,14 @@ export default function App() {
     ? { top: 76, left: 392, right: selected ? 452 : 20, bottom: 112 }
     : { top: 8, left: 8, right: 8, bottom: 8 };
 
+  const windowLabel = isArchive ? (archiveQuery ? describeArchive(archiveQuery) : 'Archive') : spec.label;
+
   const status = (() => {
+    if (isArchive) {
+      if (archive.error) return { tone: 'bad', text: 'Archive search failed' };
+      if (archive.loading) return { tone: 'wait', text: 'Searching the USGS archive…' };
+      return { tone: 'archive', text: archiveQuery ? `Archive · ${archive.quakes.length.toLocaleString()} events` : 'Archive · pick a search' };
+    }
     if (feed.error && !feed.data) return { tone: 'bad', text: 'Feed unavailable' };
     if (!feedReady) return { tone: 'wait', text: `Loading ${spec.label.toLowerCase()}…` };
     if (feed.error || feed.data!.stale) return { tone: 'warn', text: 'USGS unreachable · showing last good data' };
@@ -270,18 +327,37 @@ export default function App() {
   const leftPanel = (
     <aside className="panel panel-left" aria-label="Events">
       <div className="tabs" role="tablist">
+        {isArchive && (
+          <button type="button" role="tab" aria-selected={tab === 'search'} onClick={() => setTab('search')}>
+            Search
+          </button>
+        )}
         <button type="button" role="tab" aria-selected={tab === 'feed'} onClick={() => setTab('feed')}>
-          Feed
+          {isArchive ? 'Results' : 'Feed'}
         </button>
         <button type="button" role="tab" aria-selected={tab === 'overview'} onClick={() => setTab('overview')}>
           Overview
         </button>
       </div>
       <div className="panel-scroll">
-        {tab === 'feed' ? (
+        {tab === 'search' && isArchive ? (
+          <ArchivePanel
+            query={archiveQuery}
+            onRun={setArchiveQuery}
+            location={location}
+            loading={archive.loading}
+            error={archive.error}
+            count={archive.quakes.length}
+            truncated={archive.truncated}
+          />
+        ) : tab === 'feed' ? (
+          isArchive && !archiveQuery ? (
+            <p className="empty">Run a search to load events from the archive.</p>
+          ) : (
           <FeedPanel ref={searchRef} quakes={visible} selectedId={selectedId} nowMs={now} onSelect={select} location={location} search={search} onSearch={setSearch} />
+          )
         ) : (
-          <OverviewPanel quakes={visible} nowMs={now} rangeLabel={spec.label} onSelect={select} />
+          <OverviewPanel quakes={visible} nowMs={now} rangeLabel={windowLabel} onSelect={select} />
         )}
       </div>
     </aside>
@@ -300,7 +376,11 @@ export default function App() {
           <i />
           {status.text}
         </span>
-        <div className="seg range" role="group" aria-label="Time window">
+        <div className="seg mode" role="group" aria-label="Mode">
+          <button type="button" aria-pressed={!isArchive} onClick={() => switchMode('live')}>Live</button>
+          <button type="button" aria-pressed={isArchive} onClick={() => switchMode('archive')}>Archive</button>
+        </div>
+        <div className={`seg range${isArchive ? ' range-hidden' : ''}`} role="group" aria-label="Time window">
           {RANGES.map((r) => (
             <button key={r.id} type="button" aria-pressed={range === r.id} onClick={() => setRange(r.id)} aria-label={`Past ${r.label.toLowerCase()}`}>
               <span className="long">{r.label}</span>
@@ -313,7 +393,13 @@ export default function App() {
             colorMode={colorMode} onColorMode={setColorMode} minMag={minMag} onMinMag={setMinMag}
             showPlates={showPlates} onShowPlates={setShowPlates} includeOther={includeOther} onIncludeOther={setIncludeOther}
           />
-          <LocationMenu location={location} onUseGeolocation={useGeolocation} onPick={() => setPicking(true)} onClear={() => setLocation(null)} />
+          <LocationMenu
+            location={location}
+            onUseGeolocation={useGeolocation}
+            onPick={() => setPicking(true)}
+            onCity={(c) => setLocation({ lat: c.lat, lon: c.lon, label: c.name })}
+            onClear={() => setLocation(null)}
+          />
           <AlertsMenu settings={alerts} onChange={setAlerts} location={location} />
           <button type="button" className="tb-btn tb-icon" onClick={() => setAboutOpen(true)} aria-label="About and help" title="About">
             ?
@@ -322,41 +408,72 @@ export default function App() {
       </header>
 
       <main className="stage">
-        <WorldMap
-          quakes={visible}
-          selected={selected}
-          focusNonce={focusNonce}
-          onSelect={(id) => select(id, false)}
-          colorMode={colorMode}
-          clockMs={clockMs}
-          rangeSpanMs={spec.spanMs}
-          location={location}
-          picking={picking}
-          onPick={onPick}
-          showPlates={showPlates}
-          showShaking={showShaking}
-          impacts={selected && showShaking ? impacts : []}
-          insets={insets}
-        />
+        {view === 'globe' ? (
+          <Suspense fallback={<div className="loading">Building the globe…</div>}>
+            <GlobeView
+              quakes={visible}
+              selected={selected}
+              focusNonce={focusNonce}
+              viewRequest={viewRequest}
+              onSelect={(id) => select(id, false)}
+              colorMode={colorMode}
+              clockMs={clockMs}
+              rangeSpanMs={spanMs}
+              showPlates={showPlates}
+              location={location}
+              insets={insets}
+            />
+          </Suspense>
+        ) : (
+          <WorldMap
+            quakes={visible}
+            selected={selected}
+            focusNonce={focusNonce}
+            viewRequest={viewRequest}
+            onSelect={(id) => select(id, false)}
+            colorMode={colorMode}
+            clockMs={clockMs}
+            rangeSpanMs={spanMs}
+            pulseWindowMs={pulseWindowMs}
+            location={location}
+            picking={picking}
+            onPick={onPick}
+            showPlates={showPlates}
+            showShaking={showShaking}
+            shakingSource={shakingSource}
+            observed={observed.data}
+            impacts={selected && showShaking ? impacts : []}
+            insets={insets}
+          />
+        )}
+
+        <div className="seg view-switch" role="group" aria-label="View" style={wide ? { left: insets.left + 14, top: insets.top + 12 } : undefined}>
+          <button type="button" aria-pressed={view === 'map'} onClick={() => setView('map')}>Map</button>
+          <button type="button" aria-pressed={view === 'globe'} onClick={() => setView('globe')}>3D globe</button>
+        </div>
 
         {wide && <Legend colorMode={colorMode} showPlates={showPlates} style={{ left: insets.left, bottom: insets.bottom + 4 }} />}
 
+        {(!isArchive || archiveQuery) && (
         <div className="timeline-dock" style={wide ? { left: insets.left, right: insets.right } : undefined}>
           <Timeline
             bins={bins}
             startMs={startMs}
-            endMs={liveEdge}
+            endMs={endMs}
             cursorMs={cursor}
             playing={playing}
-            rangeLabel={`${visible.length.toLocaleString()} events · ${spec.label}`}
+            rangeLabel={`${visible.length.toLocaleString()} events · ${windowLabel}`}
             onScrub={(ms) => {
               setPlaying(false);
-              setCursor(ms >= liveEdge - spec.binMs / 4 ? null : ms);
+              setCursor(ms >= endMs - binMs / 4 ? null : ms);
             }}
             onTogglePlay={togglePlay}
             onLive={goLive}
+            liveLabel={isArchive ? <>All results</> : undefined}
+            backLabel={isArchive ? 'Show all' : 'Back to live'}
           />
         </div>
+        )}
 
         {leftPanel}
 
@@ -367,11 +484,15 @@ export default function App() {
                 key={selected.id}
                 quake={selected}
                 catalog={allQuakes}
+                catalogLabel={isArchive ? 'these results' : 'this feed'}
                 nowMs={now}
                 location={location}
                 impacts={impacts}
                 showShaking={showShaking}
                 onToggleShaking={() => setShowShaking((s) => !s)}
+                source={shakingSource}
+                onSource={setShakingSource}
+                observed={observed}
                 onSelect={select}
                 onClose={() => select(null)}
               />

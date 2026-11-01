@@ -4,16 +4,18 @@ import { computeContainFit, clampPan, zoomAroundPoint, centerOn, type ViewTransf
 import { dragReducer, IDLE_DRAG_STATE, wasClick } from './dragState';
 import {
   WORLD_WIDTH, WORLD_HEIGHT, SPHERE_PATH, GRATICULE_PATH, LAND_PATH, BORDERS_PATH, PLATE_PATHS,
-  project, unproject, circlePath,
+  project, unproject, circlePath, linesPath, ringPath,
 } from './geography';
 import { depthColor, ageColor, magRadius, mmiColor, PLATE_COLORS } from './colors';
 import { CONTOUR_LEVELS, radiusForMmi, mmiRoman } from '../seismology/intensity';
 import { aftershockZoneKm } from '../seismology/aftershocks';
 import { formatRelativeTime } from '../lib/format';
 import type { CityImpact } from '../lib/cities';
-import type { PlateKind, Quake, UserLocation } from '../types';
+import type { ObservedShaking, PlateKind, Quake, ShakingSource, UserLocation } from '../types';
 
 export type ColorMode = 'depth' | 'age';
+
+export type ViewRequest = { nonce: number; area: { lon: number; lat: number; radiusKm: number } | null };
 
 export interface MapInsets {
   top: number;
@@ -27,16 +29,22 @@ interface Props {
   selected: Quake | null;
   /** Bumped whenever the app wants the map to fly to the selected quake. */
   focusNonce: number;
+  /** Zoom out to the whole world, or frame an area; acted on whenever `nonce` changes. */
+  viewRequest: ViewRequest;
   onSelect: (id: string | null) => void;
   colorMode: ColorMode;
   /** "Now" for age coloring and fresh-event pulses: the playback cursor when replaying. */
   clockMs: number;
   rangeSpanMs: number;
+  /** Events this recent (relative to clockMs) pulse. */
+  pulseWindowMs: number;
   location: UserLocation | null;
   picking: boolean;
   onPick: (lon: number, lat: number) => void;
   showPlates: boolean;
   showShaking: boolean;
+  shakingSource: ShakingSource;
+  observed: ObservedShaking | null;
   impacts: CityImpact[];
   insets: MapInsets;
 }
@@ -45,7 +53,7 @@ const MAX_ZOOM = 28;
 const PLATE_ORDER: PlateKind[] = ['divergent', 'transform', 'convergent', 'subduction'];
 
 export function WorldMap(props: Props) {
-  const { quakes, selected, focusNonce, onSelect, colorMode, clockMs, rangeSpanMs, location, picking, onPick, showPlates, showShaking, impacts, insets } = props;
+  const { quakes, selected, focusNonce, viewRequest, onSelect, colorMode, clockMs, rangeSpanMs, pulseWindowMs, location, picking, onPick, showPlates, showShaking, shakingSource, observed, impacts, insets } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const { width, height } = useElementSize(containerRef);
   // Default view: the whole world fitted into the area the floating panels leave uncovered.
@@ -120,6 +128,20 @@ export function WorldMap(props: Props) {
     animateTo({ scale, tx: c.tx + insets.left, ty: c.ty + insets.top });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusNonce]);
+
+  useEffect(() => {
+    if (!viewRequest.nonce) return;
+    const a = viewRequest.area;
+    const p = a ? project(a.lon, a.lat) : null;
+    if (!a || !p) return animateTo(fit);
+    const visW = Math.max(100, width - insets.left - insets.right);
+    const visH = Math.max(100, height - insets.top - insets.bottom);
+    const radiusWorld = (a.radiusKm / 111.195) * (WORLD_WIDTH / 360) * 0.87;
+    const scale = Math.min(maxScale, Math.max(minScale, (0.28 * Math.min(visW, visH)) / radiusWorld));
+    const c = centerOn(p[0], p[1], scale, visW, visH);
+    animateTo({ scale, tx: c.tx + insets.left, ty: c.ty + insets.top });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewRequest.nonce]);
 
   useEffect(() => () => {
     if (anim.current) cancelAnimationFrame(anim.current);
@@ -221,12 +243,23 @@ export function WorldMap(props: Props) {
   const markerScale = (1 + Math.log2(Math.max(1, zoomLevel)) * 0.12) / v.scale;
 
   const contours = useMemo(() => {
-    if (!selected || !showShaking) return [];
+    if (!selected || !showShaking || shakingSource !== 'estimate') return [];
     return CONTOUR_LEVELS.map((level) => {
       const r = radiusForMmi(selected.mag, selected.depthKm, level);
       return { level, r, d: circlePath(selected.lon, selected.lat, r) };
     }).filter((c) => c.r > 0);
-  }, [selected, showShaking]);
+  }, [selected, showShaking, shakingSource]);
+
+  const observedLayer = useMemo(() => {
+    if (!selected || !showShaking || !observed || observed.eventId !== selected.id) return null;
+    if (shakingSource === 'shakemap' && observed.shakemap) {
+      return { kind: 'shakemap' as const, items: observed.shakemap.contours.map((c) => ({ key: `sm${c.mmi}`, value: c.mmi, d: linesPath(c.lines) })) };
+    }
+    if (shakingSource === 'dyfi' && observed.dyfi) {
+      return { kind: 'dyfi' as const, items: observed.dyfi.cells.map((c, i) => ({ key: `dy${i}`, value: c.cdi, d: ringPath(c.ring) })) };
+    }
+    return null;
+  }, [selected, showShaking, shakingSource, observed]);
 
   const zonePath = useMemo(() => (selected ? circlePath(selected.lon, selected.lat, aftershockZoneKm(selected.mag)) : ''), [selected]);
   const selectedPt = selected ? project(selected.lon, selected.lat) : null;
@@ -263,9 +296,13 @@ export function WorldMap(props: Props) {
             {contours.map((c) => (
               <path key={c.level} d={c.d} className="contour" style={{ fill: mmiColor(c.level), stroke: mmiColor(c.level) }} />
             ))}
+            {observedLayer?.kind === 'dyfi' &&
+              observedLayer.items.map((c) => <path key={c.key} d={c.d} className="dyfi-cell" style={{ fill: mmiColor(c.value) }} />)}
+            {observedLayer?.kind === 'shakemap' &&
+              observedLayer.items.map((c) => <path key={c.key} d={c.d} className="shakemap-line" style={{ stroke: mmiColor(c.value) }} />)}
             {selected && <path d={zonePath} className="zone" />}
 
-            <QuakeLayer quakes={quakes} colorMode={colorMode} clockMs={clockMs} rangeSpanMs={rangeSpanMs} markerScale={markerScale} />
+            <QuakeLayer quakes={quakes} colorMode={colorMode} clockMs={clockMs} rangeSpanMs={rangeSpanMs} pulseWindowMs={pulseWindowMs} markerScale={markerScale} />
 
             {selected && contours.map((c) => {
               const p = project(selected.lon, Math.min(89, selected.lat + c.r / 111.195));
@@ -355,16 +392,13 @@ interface LayerProps {
   colorMode: ColorMode;
   clockMs: number;
   rangeSpanMs: number;
+  pulseWindowMs: number;
   markerScale: number;
 }
 
-const FRESH_MS = 60 * 60 * 1000;
-
 /** Every event as a circle in world space; memoized so panning (which only moves the parent group) never re-renders it. */
-const QuakeLayer = memo(function QuakeLayer({ quakes, colorMode, clockMs, rangeSpanMs, markerScale }: LayerProps) {
+const QuakeLayer = memo(function QuakeLayer({ quakes, colorMode, clockMs, rangeSpanMs, pulseWindowMs, markerScale }: LayerProps) {
   const sorted = useMemo(() => [...quakes].sort((a, b) => a.mag - b.mag), [quakes]);
-  // Pulse only the handful of freshest events, scaled to the window being viewed.
-  const freshWindow = Math.min(FRESH_MS, rangeSpanMs / 24);
   return (
     <g className="quakes">
       {sorted.map((q) => {
@@ -373,7 +407,7 @@ const QuakeLayer = memo(function QuakeLayer({ quakes, colorMode, clockMs, rangeS
         const age = q.time === null ? 1 : (clockMs - q.time) / rangeSpanMs;
         const color = colorMode === 'depth' ? depthColor(q.depthKm) : ageColor(age);
         const r = magRadius(q.mag) * markerScale;
-        const fresh = q.time !== null && clockMs - q.time >= 0 && clockMs - q.time < freshWindow;
+        const fresh = q.time !== null && clockMs - q.time >= 0 && clockMs - q.time < pulseWindowMs;
         return (
           <g key={q.id}>
             {fresh && <circle cx={p[0]} cy={p[1]} r={r} className="pulse" style={{ stroke: color }} />}

@@ -1,6 +1,6 @@
 // Static map geometry: a Natural Earth projection fitted to a fixed world-space
 // rectangle, plus pre-built SVG path strings for everything that never moves.
-import { geoCircle, geoGraticule10, geoNaturalEarth1, geoPath } from 'd3-geo';
+import { geoArea, geoCircle, geoGraticule10, geoNaturalEarth1, geoPath } from 'd3-geo';
 import { feature, mesh } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import countries from 'world-atlas/countries-110m.json';
@@ -62,4 +62,18 @@ const KM_PER_DEGREE = 111.195;
 export function circlePath(lon: number, lat: number, radiusKm: number): string {
   if (radiusKm <= 0) return '';
   return path(geoCircle().center([lon, lat]).radius(radiusKm / KM_PER_DEGREE).precision(2)()) ?? '';
+}
+
+/** SVG path for arbitrary lon/lat line work (ShakeMap contours). */
+export function linesPath(lines: [number, number][][]): string {
+  return path({ type: 'MultiLineString', coordinates: lines }) ?? '';
+}
+
+/** SVG path for one lon/lat polygon ring (a DYFI cell). */
+export function ringPath(ring: [number, number][]): string {
+  // GeoJSON rings are counter-clockwise; d3's spherical polygons read that as
+  // "everything except this cell", so flip any ring that covers over half the globe.
+  let poly = { type: 'Polygon' as const, coordinates: [ring] };
+  if (geoArea(poly) > 2 * Math.PI) poly = { type: 'Polygon', coordinates: [[...ring].reverse()] };
+  return path(poly) ?? '';
 }

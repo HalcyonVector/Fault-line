@@ -2,15 +2,17 @@
 
 [![CI](https://github.com/HalcyonVector/Fault-line/actions/workflows/ci.yml/badge.svg)](https://github.com/HalcyonVector/Fault-line/actions/workflows/ci.yml)
 
-A live earthquake observatory. Every event the USGS has located in the last hour, day, week or month, drawn on a dark cartographic map of the tectonic plate boundaries that cause most of them. Pick any quake and it tells you which plates are involved and which one is diving under which, how strongly nearby cities probably shook, how many aftershocks have followed so far and how likely more are. Replay the whole window as an animation, set your location to see what you might feel, and get alerts when something big happens or something hits close to home.
+A live earthquake observatory. Every event the USGS has located in the last hour, day, week or month, drawn on a dark cartographic map of the tectonic plate boundaries that cause most of them. Pick any quake and it tells you which plates are involved and which one is diving under which, how strongly nearby cities probably shook, how many aftershocks have followed so far and how likely more are. Compare that estimate with what USGS actually measured (ShakeMap) and what people reported feeling. Spin a 3D globe where every quake sits at its true depth, so the slabs of subducting plates appear inside the Earth. Search the archive back to 1900, replay any window as an animation, set your location to see what you might feel, and get alerts when something big happens or something hits close to home.
 
-Built with React, TypeScript, d3-geo and Express on free, keyless public data (the USGS real-time feeds, Peter Bird's PB2002 plate model and Natural Earth), ready to run for $0/month on Render.
+Built with React, TypeScript, d3-geo, three.js and Express on free, keyless public data (the USGS real-time feeds, Peter Bird's PB2002 plate model and Natural Earth), ready to run for $0/month on Render.
 
 > **What it's for:** keep it open in a tab to watch the planet's seismicity in real time, then click into any event to understand it the way a seismologist would read it, not just as a dot and a number.
 
 ![Live map: plate boundaries, the past week of quakes, the event feed and the replay timeline](docs/screenshots/overview.png)
 
 ![A selected M6.1 in Japan: estimated shaking contours, nearby cities, tectonic setting and aftershock forecast](docs/screenshots/quake-detail.png)
+
+![3D globe: a month of M2.5+ quakes at 3x depth; the deep Tonga-Fiji slab shows in violet inside the Earth](docs/screenshots/globe.png)
 
 <sub>Screenshots were captured against a recorded USGS M2.5+ week feed from late November 2024, replayed through the app locally.</sub>
 
@@ -33,6 +35,9 @@ Real problems found while building this, and what changed:
 - **The default view hid the Americas behind the event panel.** The map was fitted to the full window, under the floating panels. It now fits the world into the area the panels leave uncovered, and re-centres a selected quake within that area too.
 - **Fly-to zoomed far too tight.** Sizing the zoom to the light-shaking (IV) radius alone put an M6 in a view only a couple of hundred kilometres across, often pinned at maximum zoom. It now frames well over 1,000 km, so nearby cities and the boundary it sits on stay visible.
 - **"0m ago".** Events 45 to 59 seconds old were labelled "0m ago". Fixed and covered by a test.
+- **USGS publishes "Did You Feel It?" cells as unclosed rings.** The 10 km grid gives each cell's four corners without repeating the first point, which GeoJSON (and d3) require, so every square drew as a thin sliver. The server now closes the rings, tested against a real USGS file.
+- **USGS detail responses hand you URLs to fetch next.** ShakeMap and DYFI files are linked from the event detail response, so the server follows those links on the user's behalf. It only ever fetches from USGS's own host, so a tampered or unexpected URL can't point the server at an internal address; a test checks that a cloud-metadata URL is never requested.
+- **The 3D globe kept the page busy even when nothing moved.** Rendering every animation frame is invisible on a desktop GPU but froze the page under software rendering and drains phone batteries. The globe now renders only when the camera moves, an animation runs or the data changes; an idle globe costs nothing.
 
 ---
 
@@ -46,6 +51,19 @@ Real problems found while building this, and what changed:
 - **Drag to pan, scroll or pinch to zoom**, double-click to zoom in, and a reset button. Hovering an event shows a quick tooltip.
 - **Time windows:** past hour, day, week, or 30 days (M2.5+), with optional minimum-magnitude filtering and a toggle for non-earthquake events such as quarry blasts.
 
+### 3D Globe
+
+- **Every event at its true depth** (exaggerated 3x so it reads at globe scale) inside a translucent Earth, with faint stalks from the surface down to anything deeper than 30 km. Intermediate and deep quakes line up into the dipping slabs of subducting plates: Tonga-Fiji, the Andes, Japan, Indonesia.
+- Earth's core drawn to true scale for reference, coastlines, a graticule, the same plate boundaries, and a soft atmospheric rim.
+- **Drag to rotate, scroll to zoom**; it auto-rotates gently until you touch it. Click any event to select it, and the camera flies to the selection. Markers shrink as you zoom in so dense clusters separate.
+- Loaded on demand: three.js is a separate download, fetched only when you open the 3D view, and it renders only when something changes.
+
+### Archive
+
+- **Search the USGS catalog back to 1900** by date range, minimum magnitude and area: worldwide, around your location, or around any city within a radius you choose. Keep the largest or the most recent results, up to 2,000.
+- **One-click presets:** great quakes since 1900 (M8+), M7+ since 2000, the past year at M5.5+, and M4.5+ within 300 km of you since 1970.
+- Results load into the same map, globe, list, Overview statistics and quake detail, and **Replay plays them through time**, a century in 24 seconds if you like. Area searches fly the map to the area.
+
 ### Quake Detail
 
 - **Header:** magnitude and type, place, local and UTC time, and whether a seismologist has reviewed the solution.
@@ -53,6 +71,7 @@ Real problems found while building this, and what changed:
 - **Facts:** depth class, coordinates, energy as a TNT equivalent, its size rank in the window, "Did You Feel It?" report counts and ShakeMap maximum when USGS has them.
 - **Tectonic setting:** the nearest PB2002 boundary step, its type, the two plates (and which subducts beneath which), the distance to the boundary line and the relative plate speed in mm per year. Events more than 400 km from any boundary are labelled intraplate.
 - **Estimated shaking:** intensity contours (IV to VIII) drawn on the map, plus the most strongly shaken nearby cities with estimated intensity, distance and population.
+- **Measured shaking:** switch the shaking layer from the estimate to the **USGS ShakeMap** (official intensity contours from seismic stations and site conditions) or to **Felt reports** (USGS "Did You Feel It?" responses averaged on a 10 km grid). Peak values are shown side by side with the estimate, and each nearby city lists its reported intensity next to the estimated one where reports exist.
 - **At your location:** estimated intensity where you are, with distance and compass direction to the epicentre.
 - **Aftershocks:** the aftershock zone (from Wells & Coppersmith rupture length) drawn as a dashed ring, how many later events in the feed fall inside it, and a Reasenberg & Jones forecast table: chance of M3+, M5+ and a larger quake over the next day, week and month, starting from now.
 - **USGS event page link** and a **copy link** button: every quake has a shareable URL (`#quake=<id>`). Opening a link to an older event widens the time window automatically until it is found.
@@ -72,7 +91,7 @@ Real problems found while building this, and what changed:
 
 ### Near Me and Alerts
 
-- **Set your location** from the browser or by clicking the map. It is stored only in your browser.
+- **Set your location** from the browser, by searching for a city, or by clicking the map. It is stored only in your browser.
 - **Near me filter** for events likely felt where you are (estimated intensity II or more, or within 300 km).
 - **Alerts** for new events M6+ anywhere (adjustable from M4 to M8) and for anything estimated to reach intensity III or more at your location (adjustable). They arrive as in-app toasts and, with permission, system notifications. The first load of each window is treated as a baseline, so opening the app never fires a burst of alerts for old quakes.
 
@@ -98,6 +117,8 @@ A full-bleed map with glass panels floating over it: a top bar with live feed st
 | Source | Type | API Key? | What It Provides |
 |--------|------|----------|-------------------|
 | [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php) | GeoJSON summary feeds | No | Every located event: magnitude, depth, time, place, tsunami flag, PAGER alert, felt reports |
+| [USGS FDSN event service](https://earthquake.usgs.gov/fdsnws/event/1/) | REST (GeoJSON) | No | Archive searches back to 1900, and each event's detail with links to its products |
+| [USGS ShakeMap](https://earthquake.usgs.gov/data/shakemap/) and [Did You Feel It?](https://earthquake.usgs.gov/data/dyfi/) | GeoJSON products | No | Measured intensity contours and crowd-sourced felt reports for individual events |
 | [PB2002 plate boundaries](https://github.com/fraxen/tectonicplates) (Bird 2003, GeoJSON by Hugo Ahlenius / Nordpil) | Bundled JSON | No | 5,824 boundary steps with type, plate pair and relative velocity. ODC-BY 1.0 |
 | [Natural Earth](https://www.naturalearthdata.com/) | Bundled JSON | No | 960 cities with population over 100,000, for shaking estimates. Public domain |
 | [world-atlas](https://github.com/topojson/world-atlas) | Bundled TopoJSON | No | 110m country outlines for the basemap |
@@ -112,8 +133,9 @@ The bundled plate and city files are generated by `scripts/build-data.mjs` (`npm
 |-------|-----------|---------|
 | **Frontend Framework** | React 18 + TypeScript | Vite dev server and build, strict TS config |
 | **Map** | d3-geo + SVG | Natural Earth projection, geodesic circles clipped at the antimeridian, custom pan/zoom/pinch |
+| **Globe** | three.js (lazy-loaded) | Instanced event meshes at depth, OrbitControls, render-on-demand, a small rim-glow shader |
 | **Seismology** | Hand-written TypeScript | Intensity prediction, Reasenberg & Jones forecasts, b-value and completeness, rupture length, energy; no science library |
-| **Backend Framework** | Express (Node.js, ESM) | Cached USGS proxy with stale fallback, plate classification, gzip, static hosting of the built client |
+| **Backend Framework** | Express (Node.js, ESM) | Cached USGS proxy with stale fallback, archive search, ShakeMap/DYFI product fetching, plate classification, gzip, static hosting |
 | **PWA** | Web App Manifest + Service Worker + Notifications API | Installable shell, alerts |
 | **Testing** | Vitest + Supertest | Pure-logic unit tests (client and server) and HTTP route tests |
 | **CI** | GitHub Actions | Server and client tests plus a client build on every push and PR |
@@ -186,10 +208,11 @@ Fault-line/
 │   │   ├── data/plateSteps.json      # PB2002 boundary steps (generated)
 │   │   ├── lib/
 │   │   │   ├── usgsFeed.js           # Range-to-feed mapping, normalisation, per-range cache, stale fallback
+│   │   │   ├── usgsEvent.js          # Archive search, ShakeMap/DYFI fetching and parsing, host allow-list
 │   │   │   ├── plates.js             # Grid-indexed nearest-boundary classification, subduction polarity
 │   │   │   └── geo.js                # Haversine, point-to-segment distance, longitude wrapping
-│   │   └── routes/quakes.js          # GET /api/quakes?range=
-│   └── test/                         # Supertest route tests and plate/geo unit tests
+│   │   └── routes/                   # quakes.js (feed + observed shaking), archive.js
+│   └── test/                         # Supertest route tests, plate/geo tests, real USGS sample fixtures
 │
 └── client/
     ├── index.html
@@ -198,7 +221,7 @@ Fault-line/
         ├── App.tsx                   # State, filters, replay, alerts, keyboard, layout
         ├── styles.css                # Design system and responsive layout
         ├── types.ts
-        ├── api/useQuakeFeed.ts       # Polls /api/quakes for the chosen window
+        ├── api/                      # useQuakeFeed, useArchive, useObserved
         ├── hooks/                    # useStoredState, useElementSize, useNow
         ├── data/                     # Plate boundary polylines and cities (generated)
         ├── map/
@@ -207,12 +230,16 @@ Fault-line/
         │   ├── colors.ts             # Depth, age, intensity and plate palettes, marker sizing
         │   ├── panZoom.ts            # Pure fit/zoom/pan-clamp math
         │   └── dragState.ts          # Pure click-vs-drag reducer
+        ├── globe/
+        │   ├── GlobeView.tsx         # three.js globe: events at depth, picking, fly-to, render on demand
+        │   └── math.ts               # Lon/lat/depth to 3D, marker sizing
         ├── seismology/
         │   ├── intensity.ts          # Atkinson & Wald (2007) intensity prediction, contour radii, MMI wording
         │   ├── aftershocks.ts        # Reasenberg & Jones forecasts, rupture length, sequence grouping
         │   └── stats.ts              # Energy, histograms, completeness, b-value, catalog summary
         ├── lib/
-        │   ├── cities.ts             # Nearby-city shaking estimates, nearest-city labels
+        │   ├── cities.ts             # Nearby-city shaking estimates, city search, nearest-city labels
+        │   ├── archive.ts            # Archive presets, query building, spans
         │   ├── timeline.ts           # Time bins and replay cursor
         │   ├── alerts.ts             # Alert rules and new-arrival detection
         │   ├── geo.ts                # Haversine, bearing, compass points
@@ -222,6 +249,7 @@ Fault-line/
             ├── OverviewPanel.tsx, charts.tsx
             ├── QuakeDetail.tsx
             ├── Timeline.tsx, Legend.tsx
+            ├── ArchivePanel.tsx, CitySearch.tsx
             ├── MapMenu.tsx, LocationMenu.tsx, AlertsMenu.tsx, Popover.tsx
             └── Toasts.tsx, AboutDialog.tsx, ErrorBoundary.tsx
 ```
@@ -233,6 +261,8 @@ Fault-line/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/quakes?range=hour\|day\|week\|month` | Normalised events from the matching USGS feed (`all_hour`, `all_day`, `all_week`, `2.5_month`), newest first, each with its nearest plate boundary. Default `day`. Returns `{ range, feed, quakes, generatedAt, fetchedAt, cached, stale }` |
+| GET | `/api/quakes/:id/observed` | ShakeMap MMI contours and DYFI 10 km cells for one event, `null` for whichever USGS hasn't produced. Cached 10 min |
+| GET | `/api/archive?start&end&minmag&maxmag&lat&lon&radiusKm&orderby&limit` | Archive search through the USGS FDSN service. Dates as `YYYY-MM-DD` from 1900; `lat`, `lon` and `radiusKm` together; `orderby` is `magnitude` (default) or `time`; `limit` up to 2,000 (default 500). Returns `{ quakes, count, truncated }`. Cached 1 hour |
 | GET | `/api/health` | Liveness check |
 
 ---
@@ -243,6 +273,7 @@ Fault-line/
 |----------|---------|-------------|
 | `PORT` | `3002` | Port for the Express server (Render sets this automatically) |
 | `USGS_BASE_URL` | `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary` | Where to fetch the summary feeds from. Point it at a mirror, or at a local server replaying recorded feeds for offline development |
+| `USGS_FDSN_URL` | `https://earthquake.usgs.gov/fdsnws/event/1` | Where archive searches and event details come from. Product files are only fetched from `earthquake.usgs.gov` or this host |
 
 ---
 
@@ -284,6 +315,7 @@ How a quake gets its context:
 3. **Shake:** on selection, the client solves the Atkinson & Wald (2007) intensity equation outward from the hypocentre to draw contours and rank nearby cities.
 4. **Forecast:** the Reasenberg & Jones (1989) model integrates the Omori-Utsu decay over the next day, week and month from the time elapsed so far, scaled by Gutenberg-Richter.
 5. **Sequence:** later events inside the Wells & Coppersmith rupture-length zone are counted as aftershocks; a larger later one marks the original as a foreshock.
+6. **Observe:** if USGS has published a ShakeMap or felt reports, the server follows the event's detail record to those files, closes and trims their geometry, and the client draws them in place of (and compared with) the estimate.
 
 ---
 
@@ -293,11 +325,11 @@ How a quake gets its context:
 npm test
 ```
 
-**Client (74 tests, Vitest):** every pure module in `seismology/`, `lib/` and `map/` has a suite with physical-sanity checks. The b-value estimator recovers a known b = 1.0 from a synthetic Gutenberg-Richter catalog; maximum-curvature completeness lands on the peak bin plus the standard 0.2 correction; the M4.5 global floor is tested against a US-heavy synthetic catalog; the Omori integral matches numerical integration; the Reasenberg & Jones forecast scales by exactly 10^b per magnitude unit and gives the textbook-scale answer for an M6; intensity falls with distance and depth and contour radii match the equation at their edges; Wells & Coppersmith gives ~50 km for an M7; an M6 comes out near 15 kt of TNT; and sequence grouping finds aftershocks, foreshocks and parents.
+**Client (88 tests, Vitest):** every pure module in `seismology/`, `lib/` and `map/` has a suite with physical-sanity checks. The b-value estimator recovers a known b = 1.0 from a synthetic Gutenberg-Richter catalog; maximum-curvature completeness lands on the peak bin plus the standard 0.2 correction; the M4.5 global floor is tested against a US-heavy synthetic catalog; the Omori integral matches numerical integration; the Reasenberg & Jones forecast scales by exactly 10^b per magnitude unit and gives the textbook-scale answer for an M6; intensity falls with distance and depth and contour radii match the equation at their edges; Wells & Coppersmith gives ~50 km for an M7; an M6 comes out near 15 kt of TNT; sequence grouping finds aftershocks, foreshocks and parents; globe coordinates round-trip and depths scale correctly; city search ranks and folds accents; and archive presets and spans are exact.
 
-**Server (17 tests, Vitest + Supertest):** feed normalisation, invalid-event dropping, newest-first sorting, the range-to-feed mapping, 400 on unknown ranges, caching, the stale fallback when USGS fails after a good fetch, and 502 when nothing is cached, all against a mocked `fetch`. Plate classification is checked against real geography: the Chilean margin is Nazca subduction, the San Andreas is a Pacific/North America transform, Iceland is divergent, central Nebraska is intraplate, and Tonga resolves across the antimeridian.
+**Server (29 tests, Vitest + Supertest):** feed normalisation, invalid-event dropping, newest-first sorting, the range-to-feed mapping, 400 on unknown ranges, caching, the stale fallback when USGS fails after a good fetch, and 502 when nothing is cached, all against a mocked `fetch`. Plate classification is checked against real geography: the Chilean margin is Nazca subduction, the San Andreas is a Pacific/North America transform, Iceland is divergent, central Nebraska is intraplate, and Tonga resolves across the antimeridian. ShakeMap and DYFI parsing runs on trimmed copies of real USGS files, the product fetcher refuses non-USGS hosts, and archive queries are validated before USGS is ever called.
 
-`WorldMap.tsx` and the panels are checked in a real browser rather than unit tests. Both suites and a production build run in CI on every push.
+`WorldMap.tsx`, `GlobeView.tsx` and the panels are checked in a real browser rather than unit tests. Both suites and a production build run in CI on every push.
 
 ---
 
@@ -308,7 +340,10 @@ npm test
 - **The aftershock zone is a circle.** Real aftershocks follow the rupture's shape; the zone is a radius from Wells & Coppersmith rupture length (at least 20 km), so long ruptures are under-covered at their ends.
 - **The global b-value is a catalog statistic, not a regional one.** It pools every region in the window and only starts at M4.5, so a quiet day often has too few events to fit.
 - **Plate classification is nearest-boundary only.** It does not consider depth or slab geometry, so a deep event far inland above a subducting slab can be labelled by the nearest surface boundary, or as intraplate if that boundary is over 400 km away. PB2002 is also a 2003 model.
-- **Cities are a bundled list** of places over 100,000 people, so smaller towns closer to an epicentre are not listed.
+- **Cities are a bundled list** of places over 100,000 people, so smaller towns closer to an epicentre are not listed, and city search only finds those.
+- **Globe depths are exaggerated 3x** so slabs are visible at globe scale. Shapes are right; absolute depths on screen are not.
+- **ShakeMap and DYFI only exist for some events**, mostly felt quakes near people; ocean and remote events often have neither.
+- **Archive searches are capped at 2,000 results** and USGS refuses very broad queries, so a century of small quakes needs a higher magnitude or a narrower window.
 - **Alerts only fire while a tab is open.** There is no push server.
 - **The month window is M2.5+ only**, to keep the payload light; smaller events are in the hour, day and week windows.
 - **USGS feeds lag reality** by minutes for automatic solutions and can be revised later; magnitudes and locations of fresh events often change.
@@ -318,12 +353,11 @@ npm test
 
 ## Suggested Future Features
 
-- **Real ShakeMap and DYFI overlays** from the USGS detail feed for events that have them, side by side with the estimate.
 - **Push notifications** through a service worker and a small server-side watcher, so alerts work with the tab closed.
 - **Slab depth contours** (Slab2) to place intermediate and deep events on the subducting plate they belong to.
 - **Region-calibrated intensity and aftershock parameters** (for example the Page et al. 2016 global tectonic regionalisation).
-- **A 3D globe view** for deep-focus events and polar regions.
-- **City search** for setting your location.
+- **Slab2 surfaces on the globe**, drawn as translucent sheets the deep events fall onto.
+- **Per-event estimate accuracy**, scoring the intensity model against DYFI reports across many events.
 
 ---
 

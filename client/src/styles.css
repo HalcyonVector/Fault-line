@@ -272,6 +272,127 @@ button:disabled {
   color: var(--ink);
 }
 
+.range-hidden {
+  visibility: hidden;
+}
+
+.mode {
+  margin-left: auto;
+}
+
+.mode + .range {
+  margin-left: 0;
+}
+
+.status-archive i {
+  background: #b197fc;
+  animation: none;
+}
+
+.archive {
+  padding: 14px 12px 18px;
+}
+
+.archive-intro {
+  margin: 0 0 12px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.presets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.preset {
+  text-align: left;
+  padding: 10px 11px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--raised);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.preset:hover:not(:disabled) {
+  border-color: rgba(255, 107, 53, 0.45);
+  background: var(--accent-soft);
+}
+
+.preset b {
+  font-size: 13px;
+}
+
+.preset span {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.archive-form {
+  margin-top: 16px;
+  padding: 12px 13px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--raised);
+}
+
+.archive-form h4 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.form-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.form-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--ink-2);
+  flex: 1;
+}
+
+.form-row-end {
+  align-items: flex-end;
+}
+
+.form-row-end .btn {
+  flex: 1;
+}
+
+.archive input[type='date'],
+.archive select {
+  height: 34px;
+  padding: 0 9px;
+  border-radius: 9px;
+  border: 1px solid var(--line-2);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  color-scheme: dark;
+}
+
+.archive-status {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.archive-error {
+  color: var(--bad);
+}
+
 .range .short {
   display: none;
 }
@@ -279,6 +400,19 @@ button:disabled {
 .seg button[aria-pressed='true'] {
   background: var(--ink);
   color: #0b0f14;
+}
+
+.seg-full {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.seg-full button {
+  flex: 1;
+}
+
+.note a {
+  color: var(--accent-2);
 }
 
 .seg-sm button {
@@ -445,6 +579,57 @@ button:disabled {
 input[type='range'] {
   width: 100%;
   accent-color: var(--accent);
+}
+
+.city-search {
+  position: relative;
+  margin-top: 12px;
+}
+
+.city-search input {
+  width: 100%;
+  height: 36px;
+  padding: 0 11px;
+  border-radius: 10px;
+  border: 1px solid var(--line-2);
+  background: rgba(0, 0, 0, 0.3);
+  outline: none;
+  font-size: 13.5px;
+}
+
+.city-search input:focus {
+  border-color: rgba(255, 181, 71, 0.5);
+}
+
+.city-results {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--line-2);
+  background: var(--panel-solid);
+}
+
+.city-results button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  text-align: left;
+  font-size: 13px;
+}
+
+.city-results li[aria-selected='true'] button {
+  background: var(--accent-soft);
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 12px;
 }
 
 /* ---------- Buttons ---------- */
@@ -673,6 +858,24 @@ input[type='range'] {
   pointer-events: none;
 }
 
+.shakemap-line {
+  fill: none;
+  stroke-width: 1.6;
+  stroke-opacity: 0.9;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  animation: fade-in 0.5s ease-out;
+}
+
+.dyfi-cell {
+  fill-opacity: 0.55;
+  stroke: rgba(8, 11, 16, 0.35);
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  animation: fade-in 0.5s ease-out;
+}
+
 .zone {
   fill: none;
   stroke: rgba(255, 255, 255, 0.5);
@@ -818,6 +1021,50 @@ input[type='range'] {
   font-size: 13px;
   box-shadow: var(--shadow);
   pointer-events: none;
+}
+
+.view-switch {
+  position: absolute;
+  z-index: 6;
+  background: var(--panel);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+}
+
+.globe {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 45%, #0e141c 0%, var(--bg) 70%);
+  cursor: grab;
+  touch-action: none;
+  overflow: hidden;
+}
+
+.globe:active {
+  cursor: grabbing;
+}
+
+.globe canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.globe-note {
+  position: absolute;
+  font-size: 11.5px;
+  color: var(--muted);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.globe-failed {
+  display: grid;
+  place-items: center;
+  padding: 40px;
+  color: var(--ink-2);
+  text-align: center;
 }
 
 /* ---------- Legend ---------- */
@@ -2033,7 +2280,7 @@ kbd {
     position: relative;
     display: flex;
     flex-direction: column;
-    padding-top: 64px;
+    padding-top: 100px;
   }
 
   .topbar {
@@ -2041,11 +2288,34 @@ kbd {
     top: 0;
     left: 0;
     right: 0;
-    height: 56px;
+    height: auto;
     border-radius: 0;
     border-width: 0 0 1px;
-    padding: 0 8px 0 12px;
+    padding: 8px 10px;
     gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* Line break: brand and actions on the first row, mode and window on the second. */
+  .topbar::after {
+    content: '';
+    order: 2;
+    flex-basis: 100%;
+    height: 0;
+  }
+
+  .topbar .mode {
+    order: 3;
+    margin-left: 0;
+  }
+
+  .topbar .range {
+    order: 4;
+    margin-left: auto;
+  }
+
+  .topbar .range-hidden {
+    display: none;
   }
 
   .brand-name {
@@ -2089,7 +2359,7 @@ kbd {
 
   .popover {
     position: fixed;
-    top: 62px;
+    top: 100px;
     left: 8px;
     right: 8px;
     width: auto;
@@ -2101,6 +2371,22 @@ kbd {
     height: min(64vh, calc(100vw / 1.62));
     min-height: 230px;
     flex-shrink: 0;
+  }
+
+  .view-switch {
+    top: 108px;
+    left: 16px;
+  }
+
+  .globe {
+    position: relative;
+    height: min(64vh, calc(100vw / 1.0));
+    min-height: 300px;
+    flex-shrink: 0;
+  }
+
+  .globe-note {
+    display: none;
   }
 
   .timeline-dock {
@@ -2160,7 +2446,7 @@ kbd {
   .toasts,
   .banner {
     position: fixed;
-    top: 64px;
+    top: 104px;
   }
 
   .map-picking-hint {

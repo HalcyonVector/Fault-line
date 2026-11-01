@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CITIES, cityImpacts, nearestCity } from './cities';
+import { CITIES, cityImpacts, nearestCity, searchCities } from './cities';
 
 describe('cities', () => {
   it('ships a sensible bundled list', () => {
@@ -21,5 +21,21 @@ describe('cities', () => {
 
   it('labels a location by its nearest city', () => {
     expect(nearestCity(2.35, 48.86)?.name).toBe('Paris');
+  });
+});
+
+describe('searchCities', () => {
+  it('ranks prefix matches first, then by population', () => {
+    const r = searchCities('san');
+    expect(r[0].name.toLowerCase().startsWith('san')).toBe(true);
+    expect(r.length).toBeLessThanOrEqual(6);
+  });
+  it('ignores case and accents, and needs two characters', () => {
+    expect(searchCities('TOKY')[0].name).toBe('Tokyo');
+    expect(searchCities('t')).toEqual([]);
+  });
+  it('falls back to substring and country matches', () => {
+    expect(searchCities('ngeles').some((c) => c.name === 'Los Angeles')).toBe(true);
+    expect(searchCities('Japan').every((c) => c.country === 'Japan')).toBe(true);
   });
 });

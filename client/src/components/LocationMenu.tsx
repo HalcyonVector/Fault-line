@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import { Popover } from './Popover';
+import { CitySearch } from './CitySearch';
+import type { City } from '../lib/cities';
 import type { UserLocation } from '../types';
 
 interface Props {
   location: UserLocation | null;
   onUseGeolocation: () => Promise<void>;
   onPick: () => void;
+  onCity: (c: City) => void;
   onClear: () => void;
 }
 
-export function LocationMenu({ location, onUseGeolocation, onPick, onClear }: Props) {
+export function LocationMenu({ location, onUseGeolocation, onPick, onCity, onClear }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -42,6 +45,7 @@ export function LocationMenu({ location, onUseGeolocation, onPick, onClear }: Pr
           Used to estimate how strongly each quake would be felt where you are, filter the feed to nearby events, and drive alerts. It
           stays in this browser.
         </p>
+        <CitySearch onPick={(c) => { onCity(c); setOpen(false); }} placeholder="Search a city" autoFocus />
         <div className="pop-actions">
           <button type="button" className="btn btn-primary" onClick={geo} disabled={busy}>
             {busy ? 'Locating…' : 'Use my location'}

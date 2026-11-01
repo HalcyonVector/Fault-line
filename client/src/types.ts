@@ -1,115 +1,64 @@
-/** A single normalized earthquake event, as served by GET /api/quakes. */
+export type PlateKind = 'subduction' | 'convergent' | 'divergent' | 'transform';
+
+/** Nearest plate boundary context, attached server-side from the PB2002 model. */
+export interface PlateContext {
+  stepClass: string;
+  kind: PlateKind;
+  label: string;
+  code: string;
+  plates: [string, string];
+  subducting: string | null;
+  overriding: string | null;
+  distanceKm: number;
+  relativeVelocityMmYr: number;
+}
+
+/** A single normalized event, as served by GET /api/quakes. */
 export interface Quake {
   id: string;
   mag: number;
+  magType: string | null;
   place: string;
-  time: number | null; // ms epoch
+  time: number | null;
   updated: number | null;
+  url: string | null;
+  felt: number | null;
+  cdi: number | null;
+  mmi: number | null;
+  alert: 'green' | 'yellow' | 'orange' | 'red' | null;
+  status: string | null;
   tsunami: number;
   sig: number;
-  alert: string | null;
+  net: string | null;
   type: string;
   lon: number;
   lat: number;
   depthKm: number;
+  plate: PlateContext | null;
 }
+
+export type FeedRange = 'hour' | 'day' | 'week' | 'month';
 
 export interface QuakeFeedResponse {
-  quakes: Quake[];
+  range: FeedRange;
   feed: string;
+  quakes: Quake[];
+  generatedAt: number | null;
   fetchedAt: string;
   cached: boolean;
+  stale: boolean;
 }
 
-export type TectonicRegion = 'ring-of-fire' | 'alpide-belt' | 'mid-atlantic-ridge' | 'intraplate-other';
-
-/** A site's overdue-pressure gauge: (years since last major rupture) / recurrence interval. */
-export interface OverduePressure {
-  raw: number;
-  clamped: number;
-}
-
-/** One of the six curated real portfolio sites, merged with its live world state. */
-export interface Site {
-  id: string;
-  name: string;
-  country: string;
+export interface UserLocation {
   lat: number;
   lon: number;
-  faultSystem: string;
-  recurrenceYears: number;
-  lastMajorRuptureYear: number;
-  note: string;
-  resilience: number; // 0..100
-  health: number; // 0..100
-  overduePressure: OverduePressure;
+  label: string;
 }
 
-export interface ResilienceBudget {
-  value: number;
-  cap: number;
-  regenPerHour: number;
-  lastRegenAt: string;
-}
-
-export interface QuakeImpactLedgerEntry {
-  id: string;
-  type: 'quake-impact';
-  quakeId: string;
-  siteId: string;
-  magnitude: number;
-  depthKm: number;
-  distanceKm: number;
-  intensity: number;
-  damage: number;
-  resolvedAt: string;
-}
-
-export interface AftershockWindowLedgerEntry {
-  id: string;
-  type: 'aftershock-window';
-  mainshockQuakeId: string;
-  mainshockMagnitude: number;
-  mainshockSig: number;
-  nearestSiteId: string | null;
-  nearestSiteDistanceKm: number | null;
-  opensAt: number;
-  expiresAt: number;
-  committed: { siteId: string; amount: number; committedAt: number } | null;
-  resolvedAt: string;
-}
-
-export type LedgerEntry = QuakeImpactLedgerEntry | AftershockWindowLedgerEntry;
-
-export interface ActiveAftershockWindow {
-  id: string;
-  mainshockQuakeId: string;
-  mainshockMagnitude: number;
-  mainshockSig: number;
-  mainshockLat: number;
-  mainshockLon: number;
-  mainshockDepthKm: number;
-  nearestSiteId: string | null;
-  nearestSiteDistanceKm: number | null;
-  opensAt: number;
-  expiresAt: number;
-  committed: { siteId: string; amount: number; committedAt: number } | null;
-}
-
-/** The full shape returned by GET /api/world. */
-export interface WorldView {
-  sites: Site[];
-  budget: ResilienceBudget;
-  /** Total ledger entries written so far. The full history lives behind GET /api/world/ledger, paginated. */
-  ledgerCount: number;
-  activeAftershockWindow: ActiveAftershockWindow | null;
-  serverTimeMs: number;
-}
-
-/** One page of GET /api/world/ledger. */
-export interface LedgerPage {
-  entries: LedgerEntry[];
-  hasMore: boolean;
-  nextCursor: string | null;
-  totalMatching: number;
+export interface AlertSettings {
+  enabled: boolean;
+  /** Notify for any quake at or above this magnitude, anywhere. */
+  globalMinMag: number;
+  /** Notify when the estimated intensity at your location reaches this MMI. */
+  nearMinMmi: number;
 }

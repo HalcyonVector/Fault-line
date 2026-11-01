@@ -1,6 +1,5 @@
-// Minimal app-shell service worker. It deliberately never touches /api/* —
-// the live quake feed and the shared world/ledger state must always hit the
-// network, never a stale cache.
+// Minimal app-shell service worker. It deliberately never touches /api/*:
+// the live quake feed must always hit the network, never a stale cache.
 //
 // Navigation requests (the HTML document itself) are network-first with a
 // cache fallback, not stale-while-revalidate. Vite content-hashes the JS/CSS
@@ -14,7 +13,7 @@
 // load, and the cache only matters as a genuine offline fallback. The hashed
 // static assets themselves stay cache-first, since a given hash is immutable
 // content and safe to serve from cache without ever re-checking the network.
-const CACHE_NAME = 'fault-line-v2';
+const CACHE_NAME = 'fault-line-v3';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {

@@ -2,13 +2,14 @@
   "name": "fault-line",
   "private": true,
   "version": "1.0.0",
-  "description": "A live seismic operations command center: a shared, persistent world tracking real cities on real fault systems against the actual USGS earthquake feed.",
+  "description": "Every earthquake on Earth, live from the USGS, on a map of the plate boundaries that cause them: shaking estimates, aftershock forecasts and alerts near you.",
   "scripts": {
     "install:all": "npm install --prefix server && npm install --prefix client",
     "dev": "concurrently -k -n SERVER,CLIENT -c blue,green \"cross-env PORT=3002 npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "build": "npm run install:all && npm run build --prefix client",
     "start": "npm run start --prefix server",
-    "test": "npm run test --prefix server && npm run test --prefix client"
+    "test": "npm run test --prefix server && npm run test --prefix client",
+    "data": "node scripts/build-data.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",
